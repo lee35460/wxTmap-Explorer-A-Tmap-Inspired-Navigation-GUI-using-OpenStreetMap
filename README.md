@@ -1,0 +1,2 @@
+# wxTmap-Explorer-A-Tmap-Inspired-Navigation-GUI-using-OpenStreetMap
+A portfolio-ready desktop navigation GUI built with wxWidgets and Leaflet (OSM tiles) that mimics Tmap’s UX. It uses the Tmap Open API only for POI/geo search and computes routes via pluggable planners (strategy pattern). Designed to integrate later with a ROS/Gazebo simulator (Project 2) and full GUI↔ROS integration (Project 3).
