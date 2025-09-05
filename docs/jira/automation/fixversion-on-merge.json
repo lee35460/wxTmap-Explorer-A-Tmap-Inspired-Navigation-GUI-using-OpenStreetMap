@@ -1,0 +1,13 @@
+{
+  "name": "Set FixVersion on merge",
+  "enabled": true,
+  "ruleScope": { "type": "PROJECT" },
+  "projects": ["WXT"],
+  "triggers": [
+    { "type": "pull_request_merged", "provider": "GIT", "linkIssuesUsingKeysIn": "PR_TITLE_OR_BRANCH" }
+  ],
+  "conditions": [],
+  "actions": [
+    { "type": "editIssue", "fields": { "fixVersions": ["MVP-0.1.0"] } }
+  ]
+}
