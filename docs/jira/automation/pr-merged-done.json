@@ -1,0 +1,21 @@
+{
+  "name": "PR merged → Done + FixVersion",
+  "enabled": true,
+  "ruleScope": { "type": "PROJECT" },
+  "projects": ["WXT"],
+  "triggers": [
+    {
+      "type": "pull_request_merged",
+      "provider": "GIT",
+      "linkIssuesUsingKeysIn": "PR_TITLE_OR_BRANCH"
+    }
+  ],
+  "conditions": [
+    { "type": "statusNotIn", "statuses": ["Done", "Released"] }
+  ],
+  "actions": [
+    { "type": "transitionIssue", "transitionName": "Done" },
+    { "type": "addComment", "comment": "Merged via {{pullRequest.url}}" },
+    { "type": "editIssue", "fields": { "fixVersions": ["MVP-0.1.0"] } }
+  ]
+}

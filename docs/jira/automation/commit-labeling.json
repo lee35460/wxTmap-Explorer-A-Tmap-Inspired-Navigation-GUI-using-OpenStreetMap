@@ -1,0 +1,25 @@
+{
+  "name": "Commit message → Labels(feat/fix)",
+  "enabled": true,
+  "ruleScope": { "type": "PROJECT" },
+  "projects": ["WXT"],
+  "triggers": [
+    { "type": "commit_created", "provider": "GIT", "linkIssuesUsingKeysIn": "COMMIT_MESSAGE" }
+  ],
+  "conditions": [],
+  "actions": [
+    {
+      "type": "branching",
+      "branches": [
+        {
+          "condition": { "type": "textContains", "text": "{{commit.message}}", "search": "feat:" },
+          "actions": [ { "type": "addLabel", "labels": ["feat"] } ]
+        },
+        {
+          "condition": { "type": "textContains", "text": "{{commit.message}}", "search": "fix:" },
+          "actions": [ { "type": "addLabel", "labels": ["fix"] } ]
+        }
+      ]
+    }
+  ]
+}

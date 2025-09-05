@@ -1,0 +1,9 @@
+Issue Type,Summary,Story Points,Components,Fix versions
+Story,검색창/결과 리스트 UI,3,UI,MVP-0.1.0
+Story,Leaflet 임베드 + 타일 스위치,5,Map,MVP-0.1.0
+Story,Tmap POI API 연동,5,API,MVP-0.1.0
+Story,DummyPlanner 지오데식 경로,3,Routing,MVP-0.1.0
+Story,Grid A* 베이스라인,8,Routing,MVP-0.1.0
+Story,C++↔JS 브릿지(지도 반영),5,Map,MVP-0.1.0
+Story,설정 로더(appsettings.json),3,Build,MVP-0.1.0
+Story,멀티 OS 빌드 통합,5,Build,MVP-0.1.0

@@ -1,0 +1,20 @@
+{
+  "name": "PR created → In Progress",
+  "enabled": true,
+  "ruleScope": { "type": "PROJECT" },
+  "projects": ["WXT"],
+  "triggers": [
+    {
+      "type": "pull_request_created",
+      "provider": "GIT",
+      "linkIssuesUsingKeysIn": "PR_TITLE_OR_BRANCH"
+    }
+  ],
+  "conditions": [
+    { "type": "issueType", "issueTypes": ["Story", "Task", "Bug"] }
+  ],
+  "actions": [
+    { "type": "transitionIssue", "transitionName": "In Progress" },
+    { "type": "addComment", "comment": "PR created: {{pullRequest.url}}" }
+  ]
+}
