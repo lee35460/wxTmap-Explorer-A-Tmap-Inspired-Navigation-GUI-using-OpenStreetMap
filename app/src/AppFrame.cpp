@@ -15,5 +15,5 @@ AppFrame::AppFrame()
 
     SetSizerAndFit(sizer);
     Centre();
-    // test 4
+    // test 5
 }
