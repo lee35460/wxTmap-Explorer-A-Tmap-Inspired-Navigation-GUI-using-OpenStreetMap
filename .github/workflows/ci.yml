@@ -2,36 +2,58 @@ name: CI
 
 on:
   push:
-    branches: [ "**" ]
+    branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  build-test-macos-arm64:
-    runs-on: macos-14   # Apple Silicon (ARM64) 러너
+  build-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]  # macos-14는 유료 과금 필요. 무료로만 돌리려면 ubuntu-latest만 남기세요.
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies (Homebrew)
+      # -------- Linux deps (free tier) --------
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ccache \
+            libwxgtk3.2-dev libwxgtk-webview3.2-dev \
+            nlohmann-json3-dev libspdlog-dev libfmt-dev \
+            libgtest-dev
+          # 일부 이미지에선 gtest 라이브러리가 빌드되어 있지 않음
+          sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build
+          sudo cmake --build /usr/src/googletest/build --target install
+
+      # -------- macOS deps (requires billing for hosted runners) --------
+      - name: Install dependencies (macOS / Homebrew)
+        if: runner.os == 'macOS'
         run: |
           brew update
           brew install wxwidgets nlohmann-json spdlog fmt googletest ccache
 
       - name: Configure (CMake)
-        run: |
-          cmake -S app -B app/build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+        run: cmake -S app -B app/build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 
       - name: Build
         run: cmake --build app/build -- -j
 
       - name: Run tests
-        run: |
-          ctest --test-dir app/build --output-on-failure
+        run: ctest --test-dir app/build --output-on-failure
 
       - name: Upload test artifacts (metrics csv if exists)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: metrics
+          name: metrics-${{ matrix.os }}
           path: |
             app/build/*.csv
             app/build/**/*.csv
