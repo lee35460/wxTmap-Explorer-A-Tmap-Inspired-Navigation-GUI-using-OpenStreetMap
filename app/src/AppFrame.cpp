@@ -1,19 +1,16 @@
 #include "AppFrame.h"
 #include "MapPanel.h"
-#include <wx/wx.h>
 #include <wx/sizer.h>
+#include <spdlog/spdlog.h>
 
-AppFrame::AppFrame()
-    : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer – A Tmap-Inspired Navigation GUI",
-              wxDefaultPosition, wxSize(1200, 800)) {
-    // 상위 프레임에 들어갈 메인 패널
-    auto* panel = new MapPanel(this);
+AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
+    render_ = std::make_unique<RenderPipeline>();
+    map_ = new MapPanel(this);
+}
 
-    // 레이아웃 매니저
-    auto* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(panel, 1, wxEXPAND | wxALL, 0);
-
-    SetSizerAndFit(sizer);
-    Centre();
-    // test 6
+void AppFrame::OnRouteReady(const std::vector<LonLat>& path) {
+    render_->beginFrame();
+    map_->DrawPolyline(path);
+    render_->endFrame();
+    spdlog::info("[ACK] DrawPolyline finished, FPS(avg)={}", render_->fpsAverage());
 }
