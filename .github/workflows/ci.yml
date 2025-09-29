@@ -1,5 +1,5 @@
+# .github/workflows/ci.yml
 name: CI
-
 on:
   push:
     branches: ["**"]
@@ -8,53 +8,31 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-14]  # macos-14는 유료 과금 필요. 무료로만 돌리려면 ubuntu-latest만 남기세요.
-
+    name: Build & Test (self-hosted macOS ARM64)
+    runs-on: [self-hosted, macos, arm64, wxt]   # ← self-hosted 등록할 때 입력한 라벨과 일치시켜야 함
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # -------- Linux deps (free tier) --------
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential cmake ccache \
-            libwxgtk3.2-dev libwxgtk-webview3.2-dev \
-            nlohmann-json3-dev libspdlog-dev libfmt-dev \
-            libgtest-dev
-          # 일부 이미지에선 gtest 라이브러리가 빌드되어 있지 않음
-          sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build
-          sudo cmake --build /usr/src/googletest/build --target install
-
-      # -------- macOS deps (requires billing for hosted runners) --------
-      - name: Install dependencies (macOS / Homebrew)
+      - name: Install deps (macOS ARM64)
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install wxwidgets nlohmann-json spdlog fmt googletest ccache
+          brew install \
+            wxwidgets \
+            nlohmann-json \
+            spdlog \
+            fmt \
+            googletest \
+            ccache
 
-      - name: Configure (CMake)
-        run: cmake -S app -B app/build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+      - name: Configure
+        run: cmake -S app -B app/build \
+                   -DCMAKE_BUILD_TYPE=Debug \
+                   -DBUILD_TESTING=ON \
+                   -DCMAKE_OSX_ARCHITECTURES=arm64   # ← Apple Silicon 강제
 
       - name: Build
-        run: cmake --build app/build -- -j
+        run: cmake --build app/build -- -j$(sysctl -n hw.ncpu)
 
-      - name: Run tests
+      - name: Test
         run: ctest --test-dir app/build --output-on-failure
-
-      - name: Upload test artifacts (metrics csv if exists)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: metrics-${{ matrix.os }}
-          path: |
-            app/build/*.csv
-            app/build/**/*.csv
-          if-no-files-found: ignore
