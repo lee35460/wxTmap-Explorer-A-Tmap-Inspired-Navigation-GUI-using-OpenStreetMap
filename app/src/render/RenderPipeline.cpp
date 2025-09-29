@@ -19,3 +19,22 @@ double RenderPipeline::fpsAverage() const noexcept {
     double sum = std::accumulate(fps_samples_.begin(), fps_samples_.end(), 0.0);
     return sum / fps_samples_.size();
 }
+
+#ifdef UNIT_TEST_RENDER
+#include <thread>
+#include <cassert>
+#include <iostream>
+
+int main() {
+    RenderPipeline rp;
+    for (int i = 0; i < 100; ++i) {
+        rp.beginFrame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        rp.endFrame();
+    }
+    double avg = rp.fpsAverage();
+    std::cout << "[TEST] avg_fps=" << avg << "\n";
+    assert(avg >= 45.0);
+    return 0;
+}
+#endif
