@@ -54,6 +54,15 @@ TEST(UiDispatcherTest, MetricsLatencyRecorded) {
             if (key == "ui_callback_latency_ms") {
                 EXPECT_GE(value, 0.0);
             }
+            else if (key == "ui_queue_len") {
+                EXPECT_GE(value, 0.0);
+            }
+            else if (key == "ui_drop_cnt") {
+                EXPECT_GE(value, 0.0);
+            }
+            else {
+                FAIL() << "Unexpected metric key: " << key;
+            }
         });
 
     ASSERT_TRUE(d.post([]{}));
