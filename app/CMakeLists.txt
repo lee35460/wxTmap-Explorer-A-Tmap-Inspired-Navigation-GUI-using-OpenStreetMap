@@ -72,6 +72,8 @@ set(HEADERS
     include/planners/PlannerFactory.h
     include/render/RenderPipeline.h
     include/render/RenderMetricsExporter.h
+    include/ui/UiDispatcher.h
+    
 )
 
 # --- Render core library (shared by exe & tests) ---
@@ -111,12 +113,13 @@ if (BUILD_TESTING)
   endif()
 
   # Collect all test sources under test/*.cpp
-  file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp)
+  file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp)
 
   add_executable(unit_tests ${TEST_SOURCES})
   target_include_directories(unit_tests PRIVATE include)
   target_link_libraries(unit_tests
       PRIVATE
+          ${wxWidgets_LIBRARIES}
           GTest::gtest_main
           render_core
           nlohmann_json::nlohmann_json
@@ -124,6 +127,23 @@ if (BUILD_TESTING)
           $<IF:$<TARGET_EXISTS:fmt::fmt>,fmt::fmt,fmt::fmt-header-only>
   )
   target_compile_definitions(unit_tests PRIVATE FMT_HEADER_ONLY=1)
+
+  # Homebrew 경로를 명시적으로 추가
+  set(GTEST_ROOT "/opt/homebrew")
+  set(GTEST_INCLUDE_DIR "/opt/homebrew/include")
+  set(GTEST_LIB_DIR "/opt/homebrew/lib")
+
+  # GTest가 제대로 찾았는지 확인
+  if (NOT TARGET GTest::gtest_main)
+      add_library(GTest::gtest_main STATIC IMPORTED)
+      set_target_properties(GTest::gtest_main PROPERTIES
+          IMPORTED_LOCATION "${GTEST_LIB_DIR}/libgtest_main.a"
+          INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
+      )
+  endif()
+
+  # 테스트 타겟에 include 경로 추가
+  target_include_directories(unit_tests PRIVATE ${GTEST_INCLUDE_DIR})
 
   include(GoogleTest)
   gtest_discover_tests(unit_tests)
