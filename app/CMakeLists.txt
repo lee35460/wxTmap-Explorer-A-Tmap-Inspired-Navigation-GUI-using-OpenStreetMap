@@ -58,6 +58,7 @@ set(SOURCES
     src/planners/DummyPlanner.cpp
     src/planners/GridAStarPlanner.cpp
     src/planners/PlannerFactory.cpp
+    src/ui/MapOverlayHud.cpp
 )
 
 set(HEADERS
@@ -114,8 +115,8 @@ if (BUILD_TESTING)
 
   # Collect all test sources under test/*.cpp
   file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp)
-
-  add_executable(unit_tests ${TEST_SOURCES})
+  set(TEST_EXTRA_SOURCES src/ui/MapOverlayHud.cpp)
+  add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
   target_include_directories(unit_tests PRIVATE include)
   target_link_libraries(unit_tests
       PRIVATE
