@@ -10,6 +10,8 @@ inline void to_json(nlohmann::json& j, const LonLat& p) {
 
 MapPanel::MapPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
     // WebView 초기화 코드 (생략)
+    hud_ = new ui::MapOverlayHud(this);
+    // ...existing code...
 }
 
 void MapPanel::DrawPolyline(const std::vector<LonLat>& coords) {
@@ -24,3 +26,4 @@ void MapPanel::DrawPolyline(const std::vector<LonLat>& coords) {
         spdlog::info("[ACK] JS drawPolyline called with {} points", count);
     });
 }
+
