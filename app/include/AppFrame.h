@@ -13,4 +13,5 @@ public:
 private:
     std::unique_ptr<RenderPipeline> render_;
     MapPanel* map_{nullptr};
+    wxTextCtrl* logBox_{nullptr}; // 로그 출력용
 };
