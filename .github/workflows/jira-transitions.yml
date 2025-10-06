@@ -18,7 +18,7 @@ on:
 jobs:
   pr_opened_review_or_merged_test:
     if: github.event_name == 'pull_request'
-    runs-on: [self-hosted, macos, arm64, wxt]
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +73,7 @@ jobs:
 
   hotfix_push_mark_from_done:
     if: github.event_name == 'push'
-    runs-on: [self-hosted, macos, arm64, wxt]
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -105,7 +105,7 @@ jobs:
 
   ci_pass_to_done:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
-    runs-on: [self-hosted, macos, arm64, wxt]
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
