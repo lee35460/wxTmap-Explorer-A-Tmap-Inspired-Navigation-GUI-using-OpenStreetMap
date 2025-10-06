@@ -2,13 +2,24 @@
 #include <numeric>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <cstddef>
 
 void RenderPipeline::beginFrame() {
     t0_ = Clock::now();
 }
 
-void RenderPipeline::submitPolyline(std::vector<LonLat> /*line*/) {
-    // TODO: polyline pre-processing (simplify/clip)
+void RenderPipeline::submitPolyline(const std::vector<LonLat>& line) {
+    const auto tStart = Clock::now();
+    double length = 0.0;
+    for (std::size_t i = 1; i < line.size(); ++i) {
+        const double dx = line[i].lon - line[i - 1].lon;
+        const double dy = line[i].lat - line[i - 1].lat;
+        length += std::hypot(dx, dy);
+    }
+    (void)length; // placeholder for future use
+    last_draw_ms_ = std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+    ++draw_calls_;
 }
 
 void RenderPipeline::endFrame() {
