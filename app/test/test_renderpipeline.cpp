@@ -16,6 +16,7 @@ TEST(RenderPipelineTest, AverageFpsAboveThreshold) {
     // sleep duration well beyond 10 ms and yielding ~30 FPS. Use a slightly
     // softer guard so we still detect regressions without flaking on CI.
     EXPECT_GE(rp.fpsAverage(), 30.0);
+
     
 }
 
