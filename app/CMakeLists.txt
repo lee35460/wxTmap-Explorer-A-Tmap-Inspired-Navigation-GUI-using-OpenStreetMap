@@ -77,6 +77,7 @@ set(HEADERS
     include/ui/UiDispatcher.h
     include/ui/MapOverlayHud.h
     include/ui/TurnBanner.h
+    include/ui/MapOverlayTheme.h
 )
 
 # --- Render core library (shared by exe & tests) ---
