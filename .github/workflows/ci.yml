@@ -16,7 +16,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
-      BUILD_TYPE: Debug
+      BUILD_TYPE: Release
     steps:
       - uses: actions/checkout@v4
 
