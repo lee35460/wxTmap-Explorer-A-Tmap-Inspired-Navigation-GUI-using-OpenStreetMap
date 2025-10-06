@@ -1,0 +1,135 @@
+name: Jira Transitions
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  push:
+    branches:
+      - 'hotfix/**'
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+jobs:
+  pr_opened_review_or_merged_test:
+    if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, macos, arm64, wxt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then brew install jq; else sudo apt-get update && sudo apt-get install -y jq; fi
+
+      - name: Make scripts executable
+        run: chmod +x scripts/jira_transition.sh
+
+      - name: Collect Jira keys from PR (title + branch)
+        id: collect
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          KEYS_FROM_TITLE=$(scripts/jira_transition.sh find-from-text "$TITLE" || true)
+          KEYS_FROM_BODY=$(scripts/jira_transition.sh find-from-text "$BODY" || true)
+          KEYS_FROM_BRANCH=$(scripts/jira_transition.sh find-from-branch "$BRANCH" || true)
+          KEYS="$(printf "%s\n%s\n%s\n" "$KEYS_FROM_TITLE" "$KEYS_FROM_BODY" "$KEYS_FROM_BRANCH" | sort -u | tr '\n' ',' | sed 's/,$//')"
+          echo "keys=$KEYS" >> $GITHUB_OUTPUT
+          echo "Found keys: $KEYS"
+
+      - name: Hotfix -> set Hotfix state (then In Review)
+        if: startsWith(github.head_ref, 'hotfix/') && github.event.action != 'closed' && steps.collect.outputs.keys != ''
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          scripts/jira_transition.sh do "${{ steps.collect.outputs.keys }}" "Hotfix"
+          scripts/jira_transition.sh do "${{ steps.collect.outputs.keys }}" "In Review"
+
+      - name: Feature -> In Review (PR opened/reopened/sync)
+        if: "!startsWith(github.head_ref, 'hotfix/') && github.event.action != 'closed' && steps.collect.outputs.keys != ''"
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          scripts/jira_transition.sh do "${{ steps.collect.outputs.keys }}" "In Review"
+
+      - name: PR merged -> In Test
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true && steps.collect.outputs.keys != ''
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          scripts/jira_transition.sh do "${{ steps.collect.outputs.keys }}" "In Test"
+
+  hotfix_push_mark_from_done:
+    if: github.event_name == 'push'
+    runs-on: [self-hosted, macos, arm64, wxt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then brew install jq; else sudo apt-get update && sudo apt-get install -y jq; fi
+
+      - name: Make scripts executable
+        run: chmod +x scripts/jira_transition.sh
+
+      - name: Collect Jira keys from branch
+        id: collect
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          KEYS=$(scripts/jira_transition.sh find-from-branch "$BRANCH" || true)
+          KEYS="$(echo "$KEYS" | tr '\n' ',' | sed 's/,$//')"
+          echo "keys=$KEYS" >> $GITHUB_OUTPUT
+          echo "Found keys: $KEYS"
+
+      - name: Done -> Hotfix (브랜치 생성/푸시 시 표시)
+        if: steps.collect.outputs.keys != ''
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          scripts/jira_transition.sh do "${{ steps.collect.outputs.keys }}" "Hotfix"
+
+  ci_pass_to_done:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, macos, arm64, wxt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then brew install jq; else sudo apt-get update && sudo apt-get install -y jq; fi
+
+      - name: Make scripts executable
+        run: chmod +x scripts/jira_transition.sh
+
+      - name: Infer keys from head branch of the PR that triggered CI
+        id: collect
+        run: |
+          BRANCH='${{ github.event.workflow_run.head_branch }}'
+          KEYS=$(scripts/jira_transition.sh find-from-branch "$BRANCH" || true)
+          KEYS="$(echo "$KEYS" | tr '\n' ',' | sed 's/,$//')"
+          echo "keys=$KEYS" >> $GITHUB_OUTPUT
+          echo "From CI run branch($BRANCH), keys: $KEYS"
+
+      - name: In Test -> Done (CI 성공 시)
+        if: steps.collect.outputs.keys != ''
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          scripts/jira_transition.sh do "${{ steps.collect.outputs.keys }}" "Done"
