@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+ISSUE=$(echo "$BRANCH" | grep -Eo 'WXT-[0-9]+')
+
+if [[ -n "$ISSUE" ]]; then
+  FILE="$1"
+  MSG=$(cat "$FILE")
+  if ! echo "$MSG" | grep -q "$ISSUE"; then
+    printf '%s: %s\n' "$ISSUE" "$MSG" > "$FILE"
+  fi
+fi
