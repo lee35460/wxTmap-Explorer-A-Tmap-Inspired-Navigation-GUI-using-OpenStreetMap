@@ -79,7 +79,11 @@ sequenceDiagram
 - WXT-52 기능 구현 구현 완료
 - 총 0개 파일 수정
 - 0개 새 클래스, 0개 새 메서드 구현
+<<<<<<< HEAD
 - 브랜치: feature/WXT-57-route-polyline
+=======
+- 브랜치: feature/WXT-58-ui-1
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 
 ---
 

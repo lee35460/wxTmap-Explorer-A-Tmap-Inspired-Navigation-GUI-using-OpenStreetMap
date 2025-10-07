@@ -57,11 +57,19 @@ sequenceDiagram
 - **수정된 파일**: 0개
 - **새 클래스**: 0개
 - **새 메서드**: 0개
+<<<<<<< HEAD
 - **커밋 수**: 2개
+=======
+- **커밋 수**: 3개
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 
 ## 🔄 개발 과정
 
 ### 커밋 히스토리
+<<<<<<< HEAD
+=======
+- 1d3b9b6 feat(WXT-53 to WXT-57): Implement various features including MapOverlay HUD, Turn Banner, and Route Polyline styling with performance metrics and testing
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 - cabb4be WXT-54: WXT-2d Add unit & server tests for RenderPipeline (§4.3) #comment Added lightweight harness and GTest verifying FPS >= 45 SpecRef: §4.3 Components: Testing Labels: server-test Fix Version: M1
 - 79dea1a WXT-54: WXT-2d Add unit & server tests for RenderPipeline (§4.3) #comment Added lightweight harness and GTest verifying FPS >= 45 SpecRef: §4.3 Components: Testing Labels: server-test Fix Version: M1
 
@@ -79,7 +87,11 @@ sequenceDiagram
 - WXT-54 기능 구현 구현 완료
 - 총 0개 파일 수정
 - 0개 새 클래스, 0개 새 메서드 구현
+<<<<<<< HEAD
 - 브랜치: feature/WXT-57-route-polyline
+=======
+- 브랜치: feature/WXT-58-ui-1
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 
 ---
 
