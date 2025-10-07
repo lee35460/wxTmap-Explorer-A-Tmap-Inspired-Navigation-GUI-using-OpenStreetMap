@@ -46,7 +46,8 @@ jobs:
             nlohmann-json3-dev \
             libspdlog-dev \
             libfmt-dev \
-            libgtest-dev
+            libgtest-dev \
+            xvfb
           sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build
           sudo cmake --build /usr/src/googletest/build --target install
 
@@ -58,7 +59,9 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE\vcpkg
           & $env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat
           & $env:USERPROFILE\vcpkg\vcpkg.exe install wxwidgets:x64-windows nlohmann-json:x64-windows spdlog:x64-windows fmt:x64-windows gtest:x64-windows
-          "CMAKE_TOOLCHAIN_FILE=$env:USERPROFILE\vcpkg\scripts\buildsystems\vcpkg.cmake" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $toolchain = "$env:USERPROFILE\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          $env:CMAKE_TOOLCHAIN_FILE = $toolchain
+          "CMAKE_TOOLCHAIN_FILE=$toolchain" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "VCPKG_TARGET_TRIPLET=x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Configure (macOS)
@@ -77,7 +80,7 @@ jobs:
       - name: Configure (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: cmake -S app -B app/build -G Ninja -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -DBUILD_TESTING=ON -DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE
+        run: cmake -S app -B app/build -G Ninja -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -DBUILD_TESTING=ON "-DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE"
 
       - name: Build
         if: runner.os != 'Windows'
@@ -90,7 +93,12 @@ jobs:
 
       - name: Test
         if: runner.os != 'Windows'
-        run: ctest --test-dir app/build --output-on-failure
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a ctest --test-dir app/build --output-on-failure
+          else
+            ctest --test-dir app/build --output-on-failure
+          fi
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
