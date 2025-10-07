@@ -25,16 +25,33 @@
 
 ### 변경된 파일들
 ```
+<<<<<<< HEAD
+=======
+.github/workflows/ci.yml
+.gitignore
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 app/CMakeLists.txt
 app/include/MapPanel.h
 app/include/ui/MapOverlayHud.h
 app/src/MapPanel.cpp
 app/src/ui/MapOverlayHud.cpp
 app/test/ui/MapOverlayHudTest.cpp
+<<<<<<< HEAD
 ```
 
 ### 새로 구현된 클래스들
 - **10:class MapPanel : public wxPanel { (in app/include/MapPanel.h)**
+=======
+dev-logs/issue-logs/WXT-4.md
+dev-logs/issue-logs/WXT-51.md
+dev-logs/issue-logs/WXT-52.md
+dev-logs/issue-logs/WXT-53.md
+dev-logs/issue-logs/WXT-54.md
+```
+
+### 새로 구현된 클래스들
+- **7:class MapPanel : public wxPanel { (in app/include/MapPanel.h)**
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 - **26:class MapOverlayHud : public wxPanel { (in app/include/ui/MapOverlayHud.h)**
 
 ### 주요 메서드 구현
@@ -59,7 +76,11 @@ sequenceDiagram
 
 ```mermaid
 classDiagram
+<<<<<<< HEAD
     class 10:class {
+=======
+    class 7:class {
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
         +method1()
         +method2()
     }
@@ -79,14 +100,25 @@ classDiagram
 - **빌드 상태**: Ready
 
 ### 변경사항 메트릭
+<<<<<<< HEAD
 - **수정된 파일**: 6개
 - **새 클래스**: 2개
 - **새 메서드**: 2개
 - **커밋 수**: 8개
+=======
+- **수정된 파일**: 13개
+- **새 클래스**: 2개
+- **새 메서드**: 2개
+- **커밋 수**: 9개
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 
 ## 🔄 개발 과정
 
 ### 커밋 히스토리
+<<<<<<< HEAD
+=======
+- 1d3b9b6 feat(WXT-53 to WXT-57): Implement various features including MapOverlay HUD, Turn Banner, and Route Polyline styling with performance metrics and testing
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 - ad1fd08 WXT-55: Merge - modified CMakelists.txt for MapOverlayHUD
 - bbdb2a5 WXT-55: Merge - modified CMakelists.txt for MapOverlayHUD
 - 8cae098 WXT-55: modified CMakelists.txt for MapOverlayHUD
@@ -108,9 +140,15 @@ classDiagram
 
 ### 2025-10-07 - 개발 완료
 - WXT-55 기능 구현 구현 완료
+<<<<<<< HEAD
 - 총 6개 파일 수정
 - 2개 새 클래스, 2개 새 메서드 구현
 - 브랜치: feature/WXT-57-route-polyline
+=======
+- 총 13개 파일 수정
+- 2개 새 클래스, 2개 새 메서드 구현
+- 브랜치: feature/WXT-58-ui-1
+>>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 
 ---
 
