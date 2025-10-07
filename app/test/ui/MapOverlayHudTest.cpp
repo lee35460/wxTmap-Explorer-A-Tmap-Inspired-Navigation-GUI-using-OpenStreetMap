@@ -2,9 +2,13 @@
 #include "ui/MapOverlayHud.h"
 #include <wx/dcmemory.h>
 #include <wx/bitmap.h>
+#include <wx/wx.h>
 #include <chrono>
 
 TEST(MapOverlayHudTest, FirstPaintUnder2s) {
+    wxInitializer initializer;
+    ASSERT_TRUE(initializer.IsOk());
+
     ui::HudState state;
     wxBitmap bmp(800, 600);
     wxMemoryDC memDC(bmp);

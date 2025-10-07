@@ -5,6 +5,8 @@
 #include <wx/button.h>
 #include <spdlog/spdlog.h>
 
+static const int ID_TOGGLE_ANIM = wxID_HIGHEST + 100; // must match MapPanel
+
 AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
     render_ = std::make_unique<RenderPipeline>();
     map_ = new MapPanel(this);
@@ -19,6 +21,8 @@ AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
     auto* controls = new wxBoxSizer(wxHORIZONTAL);
     auto* btnSimRoute = new wxButton(this, wxID_ANY, "Simulate Route");
     controls->Add(btnSimRoute, 0, wxALL, 5);
+    auto* btnToggleAnim = new wxButton(this, wxID_ANY, "Toggle Banner Anim");
+    controls->Add(btnToggleAnim, 0, wxALL, 5);
     root->Add(controls, 0, wxEXPAND);
 
     // Map area and log box
@@ -38,13 +42,25 @@ AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
         }
         OnRouteReady(path);
     });
+
+    btnToggleAnim->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){
+        wxCommandEvent ev(wxEVT_BUTTON, ID_TOGGLE_ANIM);
+        ev.SetEventObject(this);
+        wxPostEvent(map_, ev); // let MapPanel handle start/stop
+    });
 }
 
 void AppFrame::OnRouteReady(const std::vector<LonLat>& path) {
+    render_->resetDrawStats();
     render_->beginFrame();
+    render_->submitPolyline(path);
     map_->DrawPolyline(path);
     render_->endFrame();
 
-    wxString msg = wxString::Format("DrawPolyline finished, FPS(avg)=%.2f\n", render_->fpsAverage());
+    wxString msg = wxString::Format(
+        "DrawPolyline finished, FPS(avg)=%.2f, polyline_draw_ms=%.2f, draw_calls=%zu\n",
+        render_->fpsAverage(),
+        render_->lastPolylineDrawMs(),
+        render_->drawCalls());
     logBox_->AppendText(msg);
 }
