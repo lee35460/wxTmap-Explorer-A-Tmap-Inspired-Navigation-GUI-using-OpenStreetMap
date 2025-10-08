@@ -2,6 +2,7 @@
 #include "ui/MapOverlayHud.h"
 #include <wx/dcmemory.h>
 #include <wx/bitmap.h>
+#include <wx/wx.h>
 #include <chrono>
 #include <iostream>
 #include <thread>
