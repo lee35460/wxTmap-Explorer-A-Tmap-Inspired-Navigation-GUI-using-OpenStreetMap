@@ -10,7 +10,7 @@ TEST(WXT_4_UiDispatcherTest, BackpressureDropWhenQueueFull) {
     // 일부러 느리게 실행되는 poster를 만들어 대기열을 쌓이게 한다.
     UiDispatcher::Poster slowPoster = [](std::function<void()> fn) {
         std::thread([fn = std::move(fn)]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
             fn();
         }).detach();
     };

@@ -1,19 +1,82 @@
-# .github/workflows/ci.yml
 name: CI
+
 on:
   push:
-    branches: ["**"]
+    branches:
+      - "**"
   pull_request:
   workflow_dispatch:
 
 jobs:
   build-test:
-    name: Build & Test (self-hosted macOS ARM64)
-    runs-on: [self-hosted, macos, arm64, wxt]   # ← self-hosted 등록할 때 입력한 라벨과 일치시켜야 함
+    name: Build & Test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      BUILD_TYPE: Release
+      CCACHE_DIR: ~/.cache/ccache
+      VCPKG_ROOT: C:\\Users\\runneradmin\\vcpkg
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps (macOS ARM64)
+      - name: Compute source hash
+        id: source-hash
+        shell: bash
+        run: echo "value=${{ hashFiles('app/CMakeLists.txt','app/src/**/*.cpp','app/include/**/*.h','app/render/**/*.cpp','app/render/**/*.h') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare apt cache directories
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /var/cache/apt/archives
+          sudo chown -R $USER:$USER /var/cache/apt/archives
+
+      - name: Restore apt cache
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ steps.source-hash.outputs.value }}
+          restore-keys: |
+            apt-
+
+      - name: Restore Homebrew cache
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            ~/Library/Logs/Homebrew
+          key: brew-${{ steps.source-hash.outputs.value }}
+          restore-keys: |
+            brew-
+
+      - name: Restore ccache
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ env.BUILD_TYPE }}-${{ steps.source-hash.outputs.value }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ env.BUILD_TYPE }}-
+
+
+      - name: Restore vcpkg cache
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_ROOT }}\installed
+            ${{ env.VCPKG_ROOT }}\packages
+            ${{ env.VCPKG_ROOT }}\buildtrees
+            ${{ env.VCPKG_ROOT }}\downloads
+          key: vcpkg-${{ runner.os }}-${{ steps.source-hash.outputs.value }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew update
@@ -23,16 +86,98 @@ jobs:
             spdlog \
             fmt \
             googletest \
-            ccache
+            ccache \
+            ninja
 
-      - name: Configure
-        run: cmake -S app -B app/build \
-                   -DCMAKE_BUILD_TYPE=Debug \
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            libwxgtk3.2-dev \
+            libwxgtk-webview3.2-dev \
+            nlohmann-json3-dev \
+            libspdlog-dev \
+            libfmt-dev \
+            libgtest-dev \
+            ccache \
+            xvfb
+          sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build
+          sudo cmake --build /usr/src/googletest/build --target install
+
+      - name: Fix apt cache permissions
+        if: runner.os == 'Linux'
+        run: sudo chown -R $USER:$USER /var/cache/apt/archives
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install -y ninja
+          if (-not (Test-Path "$env:VCPKG_ROOT")) {
+            git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+          }
+          if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
+            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+          }
+          & "$env:VCPKG_ROOT\vcpkg.exe" install wxwidgets:x64-windows nlohmann-json:x64-windows spdlog:x64-windows fmt:x64-windows gtest:x64-windows
+          $toolchain = "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+          $env:CMAKE_TOOLCHAIN_FILE = $toolchain
+          "CMAKE_TOOLCHAIN_FILE=$toolchain" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "VCPKG_TARGET_TRIPLET=x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Reset ccache stats
+        if: runner.os != 'Windows'
+        run: ccache --zero-stats || true
+
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -S app -B app/build -G Ninja \
+                   -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
                    -DBUILD_TESTING=ON \
-                   -DCMAKE_OSX_ARCHITECTURES=arm64   # ← Apple Silicon 강제
+                   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                   -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Configure (Ubuntu)
+        if: runner.os == 'Linux'
+        run: cmake -S app -B app/build -G Ninja \
+                   -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+                   -DBUILD_TESTING=ON \
+                   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: cmake -S app -B app/build -G Ninja -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -DBUILD_TESTING=ON "-DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE"
 
       - name: Build
-        run: cmake --build app/build -- -j$(sysctl -n hw.ncpu)
+        if: runner.os != 'Windows'
+        run: cmake --build app/build --parallel
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: cmake --build app/build --parallel --config $env:BUILD_TYPE
+
+      - name: ccache statistics
+        if: runner.os != 'Windows'
+        run: ccache --show-stats || true
 
       - name: Test
-        run: ctest --test-dir app/build --output-on-failure
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a --server-args="-screen 0 1920x1080x24" env GDK_BACKEND=x11 ctest --test-dir app/build --output-on-failure
+          else
+            ctest --test-dir app/build --output-on-failure
+          fi
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ctest --test-dir app/build --output-on-failure -C $env:BUILD_TYPE

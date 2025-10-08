@@ -1,7 +1,3 @@
-<<<<<<< HEAD
 # .gitignore
-=======
-# 기타 무시 항목
->>>>>>> b0ded19 (feat(WXT-58): Implement waypoint list panel UI with sorting functionality)
 scripts/
 app/build/
