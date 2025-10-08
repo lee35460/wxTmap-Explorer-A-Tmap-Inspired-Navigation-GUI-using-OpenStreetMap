@@ -41,20 +41,27 @@ jobs:
             ccache-macOS-${{ env.BUILD_TYPE }}-
 
       - name: Install dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
-          brew update
           # OpenSSL 충돌 해결
-          brew unlink openssl@1.1 || true
+          brew unlink openssl@1.1 2>/dev/null || true
+          rm -f /opt/homebrew/bin/openssl || true
+          
+          # 의존성 설치
           brew install \
             wxwidgets \
             nlohmann-json \
             spdlog \
             fmt \
             googletest \
-            ccache \
             ninja
+            
+          # ccache는 별도로 설치 (OpenSSL 의존성 때문에)
+          brew install ccache || true
+          
           # OpenSSL@3 강제 링크
-          brew link --overwrite openssl@3 || true
+          brew link --overwrite openssl@3 2>/dev/null || true
 
       - name: Reset ccache stats
         run: ccache --zero-stats || true
