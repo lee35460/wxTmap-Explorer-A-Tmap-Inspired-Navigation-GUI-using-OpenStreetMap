@@ -1,104 +1,157 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.16)
 project(wxTmapExplorer LANGUAGES CXX)
+
+# --- macOS architecture & search path hygiene ---------------------------------
+if(APPLE)
+  # Build everything for Apple Silicon to match Homebrew-installed libs
+  set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
+
+  # Prefer Homebrew prefixes and avoid picking up Conda-provided libs (fmt/gtest)
+  list(PREPEND CMAKE_PREFIX_PATH "/opt/homebrew")
+  list(APPEND CMAKE_IGNORE_PREFIX_PATH "$ENV{HOME}/miniconda3" "$ENV{HOME}/anaconda3")
+
+  # Be strict about finding frameworks/libs only for the selected arch
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(USE_SYSTEM_CPR "Use system-installed cpr instead of FetchContent" OFF)
-option(USE_SYSTEM_JSON "Use system-installed nlohmann_json instead of FetchContent" OFF)
-
-# wxWidgets (requires webview component)
-find_package(wxWidgets REQUIRED COMPONENTS core base net webview)
+# --- wxWidgets ---
+find_package(wxWidgets REQUIRED COMPONENTS core base webview)
 include(${wxWidgets_USE_FILE})
+
+# --- Dependencies ---
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 include(FetchContent)
 
-# nlohmann/json
-if(USE_SYSTEM_JSON)
-  find_package(nlohmann_json CONFIG REQUIRED)
-else()
-  FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
+# fmt (needed by spdlog on some systems)
+find_package(fmt CONFIG QUIET)
+if (NOT fmt_FOUND)
+  message(STATUS "fmt not found; fetching via FetchContent")
+  FetchContent_Declare(fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG 11.0.2
   )
-  FetchContent_MakeAvailable(nlohmann_json)
+  FetchContent_MakeAvailable(fmt)
 endif()
 
-# cpr (HTTP client)
-if(USE_SYSTEM_CPR)
-  find_package(cpr CONFIG REQUIRED)
-else()
-  set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(CPR_FORCE_USE_SYSTEM_CURL OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    cpr
-    GIT_REPOSITORY https://github.com/libcpr/cpr.git
-    GIT_TAG 1.10.5
-  )
-  FetchContent_MakeAvailable(cpr)
+# --- Testing ---
+include(CTest)
+if (BUILD_TESTING)
+  find_package(GTest CONFIG QUIET)
+  if (NOT GTest_FOUND)
+    message(STATUS "GTest not found; using system or previously installed one if available")
+    find_package(GTest REQUIRED)  # fallback to non-config find
+  endif()
 endif()
 
-# Sources
-set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
+# --- Sources (app executable; do NOT list render/*.cpp here) ---
 set(SOURCES
-  ${SRC_DIR}/main.cpp
-  ${SRC_DIR}/AppFrame.cpp
-  ${SRC_DIR}/MapPanel.cpp
-  ${SRC_DIR}/TmapClient.cpp
-  ${SRC_DIR}/SimBridgeDummy.cpp
-  ${SRC_DIR}/planners/DummyPlanner.cpp
-  ${SRC_DIR}/planners/GridAStarPlanner.cpp
-  ${SRC_DIR}/planners/PlannerFactory.cpp
+    src/main.cpp
+    src/AppFrame.cpp
+    src/MapPanel.cpp
+    src/TmapClient.cpp
+    src/SimBridgeDummy.cpp
+    src/planners/DummyPlanner.cpp
+    src/planners/GridAStarPlanner.cpp
+    src/planners/PlannerFactory.cpp
+    src/ui/MapOverlayHud.cpp
+    src/ui/TurnBanner.cpp
 )
 
-add_executable(tmap_app ${SOURCES})
-
-target_include_directories(tmap_app PRIVATE
-  ${INC_DIR}
-  ${INC_DIR}/planners
+set(HEADERS
+    include/AppFrame.h
+    include/MapPanel.h
+    include/TmapClient.h
+    include/IRoutePlanner.h
+    include/IsimBridge.h
+    include/Types.h
+    include/planners/DummyPlanner.h
+    include/planners/GridAStarPlanner.h
+    include/planners/PlannerFactory.h
+    include/render/RenderPipeline.h
+    include/render/RenderMetricsExporter.h
+    include/ui/UiDispatcher.h
+    include/ui/MapOverlayHud.h
+    include/ui/TurnBanner.h
+    include/ui/MapOverlayTheme.h
 )
 
-target_link_libraries(tmap_app PRIVATE
-  ${wxWidgets_LIBRARIES}
+# --- Render core library (shared by exe & tests) ---
+add_library(render_core STATIC
+    src/render/RenderPipeline.cpp
+    src/render/RenderMetricsExporter.cpp
 )
+target_include_directories(render_core PUBLIC include)
+target_link_libraries(render_core
+    PUBLIC
+        nlohmann_json::nlohmann_json
+        spdlog::spdlog_header_only
+        $<IF:$<TARGET_EXISTS:fmt::fmt>,fmt::fmt,fmt::fmt-header-only>
+)
+target_compile_definitions(render_core PUBLIC FMT_HEADER_ONLY=1)
 
-if(TARGET nlohmann_json::nlohmann_json)
-  target_link_libraries(tmap_app PRIVATE nlohmann_json::nlohmann_json)
+# --- Executable ---
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+target_include_directories(${PROJECT_NAME} PRIVATE include)
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+        ${wxWidgets_LIBRARIES}
+        nlohmann_json::nlohmann_json
+        spdlog::spdlog_header_only
+        $<IF:$<TARGET_EXISTS:fmt::fmt>,fmt::fmt,fmt::fmt-header-only>
+        render_core
+)
+target_compile_definitions(${PROJECT_NAME} PRIVATE FMT_HEADER_ONLY=1)
+
+# --- Tests ---
+include(CTest)
+if (BUILD_TESTING)
+  find_package(GTest CONFIG QUIET)
+  if (NOT GTest_FOUND)
+    message(STATUS "GTest not found; using system or previously installed one if available")
+    find_package(GTest REQUIRED)
+  endif()
+
+  # Collect all test sources under test/*.cpp
+  file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp)
+  set(TEST_EXTRA_SOURCES 
+  src/ui/MapOverlayHud.cpp
+  src/ui/TurnBanner.cpp
+  )
+  add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
+  target_include_directories(unit_tests PRIVATE include)
+  target_link_libraries(unit_tests
+      PRIVATE
+          ${wxWidgets_LIBRARIES}
+          GTest::gtest_main
+          render_core
+          nlohmann_json::nlohmann_json
+          spdlog::spdlog_header_only
+          $<IF:$<TARGET_EXISTS:fmt::fmt>,fmt::fmt,fmt::fmt-header-only>
+  )
+  target_compile_definitions(unit_tests PRIVATE FMT_HEADER_ONLY=1)
+
+  # Homebrew 경로를 명시적으로 추가
+  set(GTEST_ROOT "/opt/homebrew")
+  set(GTEST_INCLUDE_DIR "/opt/homebrew/include")
+  set(GTEST_LIB_DIR "/opt/homebrew/lib")
+
+  # GTest가 제대로 찾았는지 확인
+  if (NOT TARGET GTest::gtest_main)
+      add_library(GTest::gtest_main STATIC IMPORTED)
+      set_target_properties(GTest::gtest_main PROPERTIES
+          IMPORTED_LOCATION "${GTEST_LIB_DIR}/libgtest_main.a"
+          INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}"
+      )
+  endif()
+
+  # 테스트 타겟에 include 경로 추가
+  target_include_directories(unit_tests PRIVATE ${GTEST_INCLUDE_DIR})
+
+  include(GoogleTest)
+  gtest_discover_tests(unit_tests)
 endif()
-
-if(TARGET cpr::cpr)
-  target_link_libraries(tmap_app PRIVATE cpr::cpr)
-endif()
-
-if(MSVC)
-  target_compile_definitions(tmap_app PRIVATE _CRT_SECURE_NO_WARNINGS)
-  target_compile_options(tmap_app PRIVATE /W4)
-else()
-  target_compile_options(tmap_app PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-# Copy UI assets and config after build
-add_custom_command(TARGET tmap_app POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-          ${CMAKE_CURRENT_SOURCE_DIR}/ui
-          $<TARGET_FILE_DIR:tmap_app>/ui)
-
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../config/appsettings.json)
-  add_custom_command(TARGET tmap_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_SOURCE_DIR}/../config/appsettings.json
-            $<TARGET_FILE_DIR:tmap_app>/appsettings.json)
-endif()
-
-# Install rules (optional)
-install(TARGETS tmap_app RUNTIME DESTINATION .)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ui DESTINATION .)
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../config/appsettings.json)
-  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../config/appsettings.json DESTINATION . RENAME appsettings.json)
-endif()
-
-message(STATUS "wxWidgets: ${wxWidgets_LIBRARIES}")

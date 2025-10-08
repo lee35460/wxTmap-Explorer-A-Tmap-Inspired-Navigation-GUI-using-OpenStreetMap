@@ -1,19 +1,66 @@
 #include "AppFrame.h"
 #include "MapPanel.h"
-#include <wx/wx.h>
 #include <wx/sizer.h>
+#include <wx/textctrl.h>
+#include <wx/button.h>
+#include <spdlog/spdlog.h>
 
-AppFrame::AppFrame()
-    : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer – A Tmap-Inspired Navigation GUI",
-              wxDefaultPosition, wxSize(1200, 800)) {
-    // 상위 프레임에 들어갈 메인 패널
-    auto* panel = new MapPanel(this);
+static const int ID_TOGGLE_ANIM = wxID_HIGHEST + 100; // must match MapPanel
 
-    // 레이아웃 매니저
-    auto* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(panel, 1, wxEXPAND | wxALL, 0);
+AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
+    render_ = std::make_unique<RenderPipeline>();
+    map_ = new MapPanel(this);
 
-    SetSizerAndFit(sizer);
-    Centre();
-    // test 6
+    // 로그 출력용 텍스트 박스 추가
+    logBox_ = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(600, 100),
+                             wxTE_MULTILINE | wxTE_READONLY);
+
+    auto* root = new wxBoxSizer(wxVERTICAL);
+
+    // Top controls (demo buttons)
+    auto* controls = new wxBoxSizer(wxHORIZONTAL);
+    auto* btnSimRoute = new wxButton(this, wxID_ANY, "Simulate Route");
+    controls->Add(btnSimRoute, 0, wxALL, 5);
+    auto* btnToggleAnim = new wxButton(this, wxID_ANY, "Toggle Banner Anim");
+    controls->Add(btnToggleAnim, 0, wxALL, 5);
+    root->Add(controls, 0, wxEXPAND);
+
+    // Map area and log box
+    root->Add(map_, 1, wxEXPAND);
+    root->Add(logBox_, 0, wxEXPAND | wxALL, 5);
+    SetSizerAndFit(root);
+
+    // Wire: simulate a polyline so we can SEE activity in the GUI
+    btnSimRoute->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        std::vector<LonLat> path;
+        path.reserve(200);
+        // Create a simple wavy path to visualize
+        for (int i = 0; i < 200; ++i) {
+            double lon = 127.000 + i * 0.001;
+            double lat = 37.500 + std::sin(i / 10.0) * 0.001;
+            path.push_back({lon, lat});
+        }
+        OnRouteReady(path);
+    });
+
+    btnToggleAnim->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){
+        wxCommandEvent ev(wxEVT_BUTTON, ID_TOGGLE_ANIM);
+        ev.SetEventObject(this);
+        wxPostEvent(map_, ev); // let MapPanel handle start/stop
+    });
+}
+
+void AppFrame::OnRouteReady(const std::vector<LonLat>& path) {
+    render_->resetDrawStats();
+    render_->beginFrame();
+    render_->submitPolyline(path);
+    map_->DrawPolyline(path);
+    render_->endFrame();
+
+    wxString msg = wxString::Format(
+        "DrawPolyline finished, FPS(avg)=%.2f, polyline_draw_ms=%.2f, draw_calls=%zu\n",
+        render_->fpsAverage(),
+        render_->lastPolylineDrawMs(),
+        render_->drawCalls());
+    logBox_->AppendText(msg);
 }
