@@ -1,38 +1,84 @@
-# .github/workflows/ci.yml
 name: CI
+
 on:
   push:
-    branches: ["**"]
+    branches:
+      - "**"
   pull_request:
   workflow_dispatch:
 
 jobs:
   build-test:
-    name: Build & Test (self-hosted macOS ARM64)
-    runs-on: [self-hosted, macos, arm64, wxt]   # ← self-hosted 등록할 때 입력한 라벨과 일치시켜야 함
+    name: Build & Test (macOS)
+    runs-on: macos-latest
+    env:
+      BUILD_TYPE: Debug
+      CCACHE_DIR: ~/.cache/ccache
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps (macOS ARM64)
-        if: runner.os == 'macOS'
+      - name: Compute source hash
+        id: source-hash
+        shell: bash
+        run: echo "value=${{ hashFiles('app/CMakeLists.txt','app/src/**/*.cpp','app/include/**/*.h','app/render/**/*.cpp','app/render/**/*.h') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Homebrew cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            ~/Library/Logs/Homebrew
+          key: brew-${{ steps.source-hash.outputs.value }}
+          restore-keys: |
+            brew-
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-macOS-${{ env.BUILD_TYPE }}-${{ steps.source-hash.outputs.value }}
+          restore-keys: |
+            ccache-macOS-${{ env.BUILD_TYPE }}-
+
+      - name: Install dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
-          brew update
+          # OpenSSL 충돌 해결
+          brew unlink openssl@1.1 2>/dev/null || true
+          rm -f /opt/homebrew/bin/openssl || true
+          
+          # 의존성 설치
           brew install \
             wxwidgets \
             nlohmann-json \
             spdlog \
             fmt \
             googletest \
-            ccache
+            ninja
+            
+          # ccache는 별도로 설치 (OpenSSL 의존성 때문에)
+          brew install ccache || true
+          
+          # OpenSSL@3 강제 링크
+          brew link --overwrite openssl@3 2>/dev/null || true
+
+      - name: Reset ccache stats
+        run: ccache --zero-stats || true
 
       - name: Configure
-        run: cmake -S app -B app/build \
-                   -DCMAKE_BUILD_TYPE=Debug \
+        run: cmake -S app -B app/build -G Ninja \
+                   -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
                    -DBUILD_TESTING=ON \
-                   -DCMAKE_OSX_ARCHITECTURES=arm64   # ← Apple Silicon 강제
+                   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                   -DCMAKE_OSX_ARCHITECTURES=arm64
 
       - name: Build
-        run: cmake --build app/build -- -j$(sysctl -n hw.ncpu)
+        run: cmake --build app/build --parallel
+
+      - name: ccache statistics
+        run: ccache --show-stats || true
 
       - name: Test
         run: ctest --test-dir app/build --output-on-failure

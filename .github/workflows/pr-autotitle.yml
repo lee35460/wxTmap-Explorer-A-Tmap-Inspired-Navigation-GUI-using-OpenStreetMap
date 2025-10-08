@@ -1,0 +1,50 @@
+name: PR Auto Title & Body
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  make-title-and-body:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          JIRA_URL: https://lee35460.atlassian.net
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+
+            const commits = await github.paginate(
+              github.rest.pulls.listCommits,
+              { owner, repo, pull_number: pr.number }
+            );
+            const subjects = commits.map(c => (c.commit.message||'').split('\n')[0]).filter(Boolean);
+
+            const findKey = s => (s||'').match(/WXT-\d+/i);
+            const issue = (findKey(pr.head.ref) || findKey(pr.title) || findKey(subjects.join('\n')) || [''])[0].toUpperCase();
+            let baseTitle = subjects[0] || pr.title || 'Update';
+            if (issue) baseTitle = baseTitle.replace(new RegExp(`^${issue}\\s*[:-]\\s*`,'i'),'').trim();
+            const finalTitle = issue ? `feat(${issue}): ${baseTitle}` : baseTitle;
+
+            const body = [
+              '### 🧩 Summary',
+              subjects[0] || '(no summary)',
+              '',
+              '### 🔗 Jira',
+              issue && process.env.JIRA_URL ? `[${issue}](${process.env.JIRA_URL}/browse/${issue})` : (issue || '_없음_'),
+              '',
+              '### 🔀 Branch',
+              `\`${pr.head.ref}\` → \`${pr.base.ref}\``,
+              '',
+              '### 🧪 Commit List',
+              (subjects.length ? subjects.map(s=>`- ${s}`).join('\n') : '- (no commits)')
+            ].join('\n');
+
+            await github.rest.pulls.update({
+              owner, repo, pull_number: pr.number,
+              title: finalTitle, body
+            });

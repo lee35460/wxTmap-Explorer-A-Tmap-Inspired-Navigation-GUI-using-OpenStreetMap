@@ -60,6 +60,7 @@ set(SOURCES
     src/planners/PlannerFactory.cpp
     src/ui/MapOverlayHud.cpp
     src/ui/TurnBanner.cpp
+    src/ui/NavigationProgressBar.cpp
 )
 
 set(HEADERS
@@ -77,6 +78,7 @@ set(HEADERS
     include/ui/UiDispatcher.h
     include/ui/MapOverlayHud.h
     include/ui/TurnBanner.h
+    include/ui/NavigationProgressBar.h
 )
 
 # --- Render core library (shared by exe & tests) ---
@@ -120,6 +122,7 @@ if (BUILD_TESTING)
   set(TEST_EXTRA_SOURCES 
   src/ui/MapOverlayHud.cpp
   src/ui/TurnBanner.cpp
+  src/ui/NavigationProgressBar.cpp
   )
   add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
   target_include_directories(unit_tests PRIVATE include)
