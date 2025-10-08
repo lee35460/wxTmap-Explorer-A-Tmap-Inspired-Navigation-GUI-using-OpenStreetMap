@@ -9,12 +9,8 @@ on:
 
 jobs:
   build-test:
-    name: Build & Test
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest]
-    runs-on: ${{ matrix.os }}
+    name: Build & Test (macOS)
+    runs-on: macos-latest
     env:
       BUILD_TYPE: Release
       CCACHE_DIR: ~/.cache/ccache
@@ -40,13 +36,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ runner.os }}-${{ env.BUILD_TYPE }}-${{ steps.source-hash.outputs.value }}
+          key: ccache-macOS-${{ env.BUILD_TYPE }}-${{ steps.source-hash.outputs.value }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ env.BUILD_TYPE }}-
+            ccache-macOS-${{ env.BUILD_TYPE }}-
 
-      - name: Install dependencies (macOS)
+      - name: Install dependencies
         run: |
           brew update
+          # OpenSSL 충돌 해결
+          brew unlink openssl@1.1 || true
           brew install \
             wxwidgets \
             nlohmann-json \
@@ -55,11 +53,13 @@ jobs:
             googletest \
             ccache \
             ninja
+          # OpenSSL@3 강제 링크
+          brew link --overwrite openssl@3 || true
 
       - name: Reset ccache stats
         run: ccache --zero-stats || true
 
-      - name: Configure (macOS)
+      - name: Configure
         run: cmake -S app -B app/build -G Ninja \
                    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
                    -DBUILD_TESTING=ON \
