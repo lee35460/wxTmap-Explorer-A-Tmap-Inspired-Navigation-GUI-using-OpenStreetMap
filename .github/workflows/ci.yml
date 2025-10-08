@@ -12,7 +12,7 @@ jobs:
     name: Build & Test (macOS)
     runs-on: macos-latest
     env:
-      BUILD_TYPE: Release
+      BUILD_TYPE: Debug
       CCACHE_DIR: ~/.cache/ccache
     steps:
       - uses: actions/checkout@v4
