@@ -18,6 +18,10 @@ public:
     TurnBanner(wxWindow* parent);
 
     void UpdateState(const TurnBannerState& state);
+    
+    // 정적 렌더링 메서드 (테스트용)
+    static void DrawTurnBannerStatic(wxDC& dc, const TurnBannerState& state,
+                                   int width, int height);
 
 private:
     TurnBannerState state_;
