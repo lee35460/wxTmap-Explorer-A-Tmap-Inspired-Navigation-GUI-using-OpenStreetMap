@@ -1,4 +1,3 @@
-
 ## 📋 개요
 wxCallAfter 기반의 UI dispatcher(`UiDispatcher` 클래스)를 도입하여, 비동기 작업 결과를 UI 스레드에 안전하게 마샬링할 수 있도록 개선했습니다. 백프레셔와 메트릭 연동을 통해 대용량 이벤트 처리와 성능 계측도 지원합니다.
 
@@ -22,9 +21,11 @@ app/CMakeLists.txt: 빌드 연동
 • 성능/안정성 검증
 
 ## 🧪 TEST
-• UiDispatcherTest: 비동기 → UI 마샬링 정상 동작
-• 메트릭 계측 및 백프레셔 테스트
-• 커밋 6회, 코드 리뷰 완료
+• UiDispatcherTest: 비동기 → UI 마샬링 정상 동작 (성공률: OK/FAIL, 메트릭 검증 및 post 성공)
+• 메트릭 계측 및 백프레셔 테스트 (메트릭 수집 횟수: 1회 이상, 백프레셔 동작 확인)
+• RenderPipelineTest: 렌더 파이프라인 정상 동작 (평균 FPS: 30fps 이상)
+• RenderPipelineMetricsTest: 렌더 파이프라인 메트릭 검증 (CSV 출력 FPS: 30fps 이상)
+• 커밋 6회, 코드 리뷰 완료 (수동 확인)
 
 ## 🚀 기술 스택 및 환경
 기술스택: C++17, wxWidgets 3.2+
