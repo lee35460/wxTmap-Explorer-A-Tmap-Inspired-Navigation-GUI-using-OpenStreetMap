@@ -5,22 +5,21 @@
 #include <cstdio>
 #include <thread>
 
-TEST(RenderPipelineTest, AverageFpsAboveThreshold) {
+TEST(WXT_4_RenderPipelineTest, AverageFpsAboveThreshold) {
     RenderPipeline rp;
     for (int i = 0; i < 100; ++i) {
         rp.beginFrame();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         rp.endFrame();
     }
-    // GitHub-hosted macOS runners can be throttled heavily, stretching the
-    // sleep duration well beyond 10 ms and yielding ~30 FPS. Use a slightly
-    // softer guard so we still detect regressions without flaking on CI.
-    EXPECT_GE(rp.fpsAverage(), 30.0);
-
-    
+    double avg_fps = rp.fpsAverage();
+    // 결과 출력 (단위/의미 포함) - Desc 항목명과 일치
+    std::cout << "test_output: RenderPipelineTest: 렌더 파이프라인 정상 동작 (평균 FPS: 30fps 이상): " 
+              << avg_fps << std::endl;
+    EXPECT_GE(avg_fps, 30.0);  // 30fps 이상이면 통과
 }
 
-TEST(RenderPipelineMetricsTest, MetricsExporter_WritesCsvWithFps) {
+TEST(WXT_4_RenderPipelineMetricsTest, MetricsExporter_WritesCsvWithFps) {
     RenderPipeline rp;
     for (int i = 0; i < 10; ++i) {
         rp.beginFrame();
@@ -39,5 +38,20 @@ TEST(RenderPipelineMetricsTest, MetricsExporter_WritesCsvWithFps) {
 
     ASSERT_FALSE(line.empty());
     // Expect prefix "fps_avg," and a numeric value after
-    ASSERT_NE(line.find("fps_avg,"), std::string::npos) << "csv header missing";
+    // ASSERT_NE(line.find("fps_avg,"), std::string::npos) << "csv header missing";
+    
+    // CSV에서 fps 값 추출
+    double fps_val = 0.0;
+    if (line.find("fps_avg,") == 0) {
+        std::string fps_str = line.substr(8);
+        try {
+            fps_val = std::stod(fps_str);
+        } catch (...) { fps_val = 0.0; }
+    }
+    
+    // 결과 출력 (단위/의미 포함) - Desc 항목명과 일치
+    std::cout << "test_output: RenderPipelineMetricsTest: 렌더 파이프라인 메트릭 검증 (CSV 출력 FPS: 30fps 이상): " 
+              << fps_val << std::endl;
+    
+    EXPECT_GE(fps_val, 30.0);  // CSV의 fps 값이 30 이상이면 통과
 }
