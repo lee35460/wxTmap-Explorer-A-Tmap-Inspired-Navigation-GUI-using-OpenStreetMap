@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 #include <atomic>
 #include <thread>
-#include <thread>
 #include <iostream>
 
 TEST(WXT_4_UiDispatcherTest, BackpressureDropWhenQueueFull) {
