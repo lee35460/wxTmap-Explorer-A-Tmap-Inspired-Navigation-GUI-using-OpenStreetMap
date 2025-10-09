@@ -118,11 +118,11 @@ classDiagram
     }
 
     class PolylineHighlightRenderer {
-        -RenderPipeline& pipeline_
+        -RenderPipeline pipeline_
         -PolylineTheme theme_
-        +renderHighlightedPolyline(vector~LonLat~, double)
-        +updateTheme(PolylineTheme)
-        +renderSegment(vector~LonLat~, int)
+        +renderHighlightedPolyline(route, progress)
+        +updateTheme(theme)
+        +renderSegment(segment, color)
     }
 
     class HudState {
@@ -156,15 +156,15 @@ classDiagram
         +float normalThickness
     }
 
-    MapPanel ||--|| MapOverlayHud : contains
-    MapPanel ||--|| TurnBanner : contains
-    MapPanel ||--|| NavigationProgressBar : contains
-    MapPanel ||--|| PolylineHighlightRenderer : uses
+    MapPanel *-- MapOverlayHud : contains
+    MapPanel *-- TurnBanner : contains
+    MapPanel *-- NavigationProgressBar : contains
+    MapPanel --> PolylineHighlightRenderer : uses
     
-    MapOverlayHud ||--|| HudState : uses
-    TurnBanner ||--|| TurnBannerState : uses
-    NavigationProgressBar ||--|| NavigationProgress : uses
-    PolylineHighlightRenderer ||--|| PolylineTheme : uses
+    MapOverlayHud --> HudState : uses
+    TurnBanner --> TurnBannerState : uses
+    NavigationProgressBar --> NavigationProgress : uses
+    PolylineHighlightRenderer --> PolylineTheme : uses
 ```
 
 ## 🚀 기술 스택 및 환경
