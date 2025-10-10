@@ -6,6 +6,7 @@ on:
     branches:
       - 'feature/WXT-*'
       - 'feature/*WXT-*'
+      - 'hotfix/WXT-*'
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -24,6 +25,7 @@ on:
           - 'In Review'
           - 'In Test'  
           - 'Done'
+          - 'hot fix'
 
 permissions:
   contents: read
@@ -65,6 +67,9 @@ jobs:
             "Done")
               TRANSITION_ID="4"
               ;;
+            "hot fix")
+              TRANSITION_ID="14"
+              ;;
             *)
               echo "❌ Unknown target status: $TARGET_STATUS"
               exit 1
@@ -89,7 +94,7 @@ jobs:
             exit 1
           fi
 
-  # Push 이벤트 시: In Progress → In Review (개발 진행 중)
+  # Push 이벤트 시: Feature → In Review, Hotfix → hot fix
   push-to-review:
     if: github.event_name == 'push' && contains(github.ref, 'WXT-')
     runs-on: ubuntu-latest
@@ -106,7 +111,7 @@ jobs:
           echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
           echo "✅ Found WXT issue from push: $WXT_ISSUE"
 
-      - name: Transition to In Review (Push)
+      - name: Branch-specific Transition (Push)
         if: steps.extract-issue.outputs.issue_key != ''
         env:
           JIRA_URL: https://lee35460.atlassian.net
@@ -114,7 +119,7 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
-          echo "🔄 Push Event - Transitioning $WXT_ISSUE: In Progress → In Review"
+          BRANCH_NAME="${{ github.ref_name }}"
           
           # Jira 이슈 상태 확인
           CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
@@ -124,25 +129,39 @@ jobs:
           
           echo "Current status: $CURRENT_STATUS"
           
-          # In Progress → In Review 전이 (전이 ID: 9 "Submit PR")
-          if [[ "$CURRENT_STATUS" == "In Progress" ]]; then
+          # 브랜치 타입에 따른 전이 결정
+          if [[ "$BRANCH_NAME" =~ ^hotfix/WXT- ]]; then
+            # Hotfix 브랜치: Done → hot fix (전이 ID: 14)
+            echo "🔄 Hotfix Push - Transitioning $WXT_ISSUE: Done → hot fix"
+            EXPECTED_STATUS="Done"
+            TRANSITION_ID="14"
+            TARGET_STATUS="hot fix"
+          else
+            # Feature 브랜치: In Progress → In Review (전이 ID: 9)
+            echo "🔄 Feature Push - Transitioning $WXT_ISSUE: In Progress → In Review"
+            EXPECTED_STATUS="In Progress"
+            TRANSITION_ID="9"
+            TARGET_STATUS="In Review"
+          fi
+          
+          if [[ "$CURRENT_STATUS" == "$EXPECTED_STATUS" ]]; then
             RESPONSE=$(curl -s -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
               -X POST \
               -H "Accept: application/json" \
               -H "Content-Type: application/json" \
-              -d '{"transition":{"id":"9"}}' \
+              -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
               "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions")
             
             HTTP_CODE="${RESPONSE: -3}"
             
             if [[ "$HTTP_CODE" == "204" ]]; then
-              echo "✅ Transitioned $WXT_ISSUE to In Review"
+              echo "✅ Transitioned $WXT_ISSUE from $EXPECTED_STATUS to $TARGET_STATUS"
             else
               echo "❌ Transition failed with HTTP $HTTP_CODE"
               echo "${RESPONSE%???}"
             fi
           else
-            echo "ℹ️ Issue $WXT_ISSUE is in '$CURRENT_STATUS' status, no transition needed"
+            echo "ℹ️ Issue $WXT_ISSUE is in '$CURRENT_STATUS' status, expected '$EXPECTED_STATUS'"
           fi
 
   # PR 생성/업데이트 시: In Review → In Test
@@ -171,7 +190,7 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
-          echo "🔄 PR Created - Transitioning $WXT_ISSUE: In Review → In Test"
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           
           # Jira 이슈 상태 확인
           CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
@@ -181,13 +200,25 @@ jobs:
           
           echo "Current status: $CURRENT_STATUS"
           
-          # In Review → In Test 전이 (전이 ID: 11 "Merge & Approve")
-          if [[ "$CURRENT_STATUS" == "In Review" ]]; then
+          # 브랜치 타입에 따른 전이 결정
+          if [[ "$BRANCH_NAME" =~ ^hotfix/WXT- ]]; then
+            # Hotfix PR: hot fix → In Test (전이 ID: 6)
+            echo "🔄 Hotfix PR Created - Transitioning $WXT_ISSUE: hot fix → In Test"
+            EXPECTED_STATUS="hot fix"
+            TRANSITION_ID="6"
+          else
+            # Feature PR: In Review → In Test (전이 ID: 11)
+            echo "🔄 Feature PR Created - Transitioning $WXT_ISSUE: In Review → In Test"
+            EXPECTED_STATUS="In Review" 
+            TRANSITION_ID="11"
+          fi
+          
+          if [[ "$CURRENT_STATUS" == "$EXPECTED_STATUS" ]]; then
             RESPONSE=$(curl -s -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
               -X POST \
               -H "Accept: application/json" \
               -H "Content-Type: application/json" \
-              -d '{"transition":{"id":"11"}}' \
+              -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
               "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions")
             
             HTTP_CODE="${RESPONSE: -3}"
@@ -199,7 +230,7 @@ jobs:
               echo "${RESPONSE%???}"
             fi
           else
-            echo "ℹ️ Issue $WXT_ISSUE is in '$CURRENT_STATUS' status, expected 'In Review'"
+            echo "ℹ️ Issue $WXT_ISSUE is in '$CURRENT_STATUS' status, expected '$EXPECTED_STATUS'"
           fi
 
 
