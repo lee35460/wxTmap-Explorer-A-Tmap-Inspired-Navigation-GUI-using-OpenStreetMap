@@ -5,15 +5,90 @@ on:
   push:
     branches:
       - 'feature/WXT-*'
+      - 'feature/*WXT-*'
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      issue_key:
+        description: 'WXT Issue Key (e.g., WXT-58)'
+        required: true
+        default: 'WXT-58'
+      target_status:
+        description: 'Target Status'
+        required: true
+        default: 'In Review'
+        type: choice
+        options:
+          - 'In Review'
+          - 'In Test'  
+          - 'Done'
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  # 수동 테스트용 Job
+  manual-transition:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Manual Jira Transition
+        env:
+          JIRA_URL: https://lee35460.atlassian.net
+          JIRA_USER: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          WXT_ISSUE="${{ github.event.inputs.issue_key }}"
+          TARGET_STATUS="${{ github.event.inputs.target_status }}"
+          
+          echo "🔄 Manual transition: $WXT_ISSUE → $TARGET_STATUS"
+          
+          # 현재 상태 확인
+          CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+            -H "Accept: application/json" \
+            "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE" | \
+            jq -r '.fields.status.name // "Unknown"')
+          
+          echo "Current status: $CURRENT_STATUS"
+          
+          # 전이 ID 결정
+          case "$TARGET_STATUS" in
+            "In Review")
+              TRANSITION_ID="9"
+              ;;
+            "In Test")
+              TRANSITION_ID="11"
+              ;;
+            "Done")
+              TRANSITION_ID="4"
+              ;;
+            *)
+              echo "❌ Unknown target status: $TARGET_STATUS"
+              exit 1
+              ;;
+          esac
+          
+          # 전이 실행
+          RESPONSE=$(curl -s -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
+            -X POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
+            "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions")
+          
+          HTTP_CODE="${RESPONSE: -3}"
+          
+          if [[ "$HTTP_CODE" == "204" ]]; then
+            echo "✅ Successfully transitioned $WXT_ISSUE to $TARGET_STATUS"
+          else
+            echo "❌ Transition failed with HTTP $HTTP_CODE"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
   # PR 생성/업데이트 시: In Progress → In Review
   transition-to-review:
     if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
@@ -24,9 +99,13 @@ jobs:
         run: |
           # PR 브랜치에서 WXT 키 추출
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          echo "🔍 Branch name: $BRANCH_NAME"
+          echo "🔍 Event name: ${{ github.event_name }}"
+          echo "🔍 Event action: ${{ github.event.action }}"
+          
           WXT_ISSUE=$(echo "$BRANCH_NAME" | grep -oE 'WXT-[0-9]+' | head -1)
           echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
-          echo "Found WXT issue: $WXT_ISSUE"
+          echo "✅ Found WXT issue: $WXT_ISSUE"
 
       - name: Transition to In Review
         if: steps.extract-issue.outputs.issue_key != ''
