@@ -202,10 +202,10 @@ jobs:
           
           # 브랜치 타입에 따른 전이 결정
           if [[ "$BRANCH_NAME" =~ ^hotfix/WXT- ]]; then
-            # Hotfix PR: hot fix → In Test (전이 ID: 6)
+            # Hotfix PR: hot fix → In Test (전이 ID: 16 "re-Submit PR")
             echo "🔄 Hotfix PR Created - Transitioning $WXT_ISSUE: hot fix → In Test"
             EXPECTED_STATUS="hot fix"
-            TRANSITION_ID="6"
+            TRANSITION_ID="16"
           else
             # Feature PR: In Review → In Test (전이 ID: 11)
             echo "🔄 Feature PR Created - Transitioning $WXT_ISSUE: In Review → In Test"
