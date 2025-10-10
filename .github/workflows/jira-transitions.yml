@@ -89,25 +89,24 @@ jobs:
             exit 1
           fi
 
-  # PR 생성/업데이트 시: In Progress → In Review
-  transition-to-review:
-    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
+  # Push 이벤트 시: In Progress → In Review (개발 진행 중)
+  push-to-review:
+    if: github.event_name == 'push' && contains(github.ref, 'WXT-')
     runs-on: ubuntu-latest
     steps:
-      - name: Extract WXT Issue Key
+      - name: Extract WXT Issue Key from Push
         id: extract-issue
         run: |
-          # PR 브랜치에서 WXT 키 추출
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          echo "🔍 Branch name: $BRANCH_NAME"
+          # 브랜치에서 WXT 키 추출
+          BRANCH_NAME="${{ github.ref_name }}"
+          echo "🔍 Push to branch: $BRANCH_NAME"
           echo "🔍 Event name: ${{ github.event_name }}"
-          echo "🔍 Event action: ${{ github.event.action }}"
           
           WXT_ISSUE=$(echo "$BRANCH_NAME" | grep -oE 'WXT-[0-9]+' | head -1)
           echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
-          echo "✅ Found WXT issue: $WXT_ISSUE"
+          echo "✅ Found WXT issue from push: $WXT_ISSUE"
 
-      - name: Transition to In Review
+      - name: Transition to In Review (Push)
         if: steps.extract-issue.outputs.issue_key != ''
         env:
           JIRA_URL: https://lee35460.atlassian.net
@@ -115,7 +114,7 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
-          echo "🔄 Transitioning $WXT_ISSUE: In Progress → In Review"
+          echo "🔄 Push Event - Transitioning $WXT_ISSUE: In Progress → In Review"
           
           # Jira 이슈 상태 확인
           CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
@@ -127,32 +126,44 @@ jobs:
           
           # In Progress → In Review 전이 (전이 ID: 9 "Submit PR")
           if [[ "$CURRENT_STATUS" == "In Progress" ]]; then
-            curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+            RESPONSE=$(curl -s -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
               -X POST \
               -H "Accept: application/json" \
               -H "Content-Type: application/json" \
               -d '{"transition":{"id":"9"}}' \
-              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions"
-            echo "✅ Transitioned $WXT_ISSUE to In Review"
+              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions")
+            
+            HTTP_CODE="${RESPONSE: -3}"
+            
+            if [[ "$HTTP_CODE" == "204" ]]; then
+              echo "✅ Transitioned $WXT_ISSUE to In Review"
+            else
+              echo "❌ Transition failed with HTTP $HTTP_CODE"
+              echo "${RESPONSE%???}"
+            fi
           else
-            echo "⚠️ Issue $WXT_ISSUE is not in 'In Progress' status, skipping transition"
+            echo "ℹ️ Issue $WXT_ISSUE is in '$CURRENT_STATUS' status, no transition needed"
           fi
 
-  # CI 성공 시: In Review → In Test
-  transition-to-test:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+  # PR 생성/업데이트 시: In Review → In Test
+  pr-to-test:
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     runs-on: ubuntu-latest
     steps:
-      - name: Extract WXT Issue Key from CI run
+      - name: Extract WXT Issue Key from PR
         id: extract-issue
         run: |
-          # CI가 실행된 브랜치에서 WXT 키 추출
-          BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
+          # PR 브랜치에서 WXT 키 추출
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          echo "🔍 PR Branch name: $BRANCH_NAME"
+          echo "🔍 Event name: ${{ github.event_name }}"
+          echo "🔍 Event action: ${{ github.event.action }}"
+          
           WXT_ISSUE=$(echo "$BRANCH_NAME" | grep -oE 'WXT-[0-9]+' | head -1)
           echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
-          echo "Found WXT issue from CI run: $WXT_ISSUE"
+          echo "✅ Found WXT issue from PR: $WXT_ISSUE"
 
-      - name: Transition to In Test
+      - name: Transition to In Test (PR Created)
         if: steps.extract-issue.outputs.issue_key != ''
         env:
           JIRA_URL: https://lee35460.atlassian.net
@@ -160,7 +171,7 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
-          echo "🔄 Transitioning $WXT_ISSUE: In Review → In Test"
+          echo "🔄 PR Created - Transitioning $WXT_ISSUE: In Review → In Test"
           
           # Jira 이슈 상태 확인
           CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
@@ -172,16 +183,26 @@ jobs:
           
           # In Review → In Test 전이 (전이 ID: 11 "Merge & Approve")
           if [[ "$CURRENT_STATUS" == "In Review" ]]; then
-            curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+            RESPONSE=$(curl -s -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
               -X POST \
               -H "Accept: application/json" \
               -H "Content-Type: application/json" \
               -d '{"transition":{"id":"11"}}' \
-              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions"
-            echo "✅ Transitioned $WXT_ISSUE to In Test"
+              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions")
+            
+            HTTP_CODE="${RESPONSE: -3}"
+            
+            if [[ "$HTTP_CODE" == "204" ]]; then
+              echo "✅ Transitioned $WXT_ISSUE to In Test"
+            else
+              echo "❌ Transition failed with HTTP $HTTP_CODE"
+              echo "${RESPONSE%???}"
+            fi
           else
-            echo "⚠️ Issue $WXT_ISSUE is not in 'In Review' status, skipping transition"
+            echo "ℹ️ Issue $WXT_ISSUE is in '$CURRENT_STATUS' status, expected 'In Review'"
           fi
+
+
 
   # PR 머지 시: In Test → Done
   transition-to-done:
