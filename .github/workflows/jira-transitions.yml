@@ -1,18 +1,125 @@
-name: PR Auto Merge (merge commit)
+name: Jira Issue Transitions
 on:
   pull_request:
-    types: [labeled]
+    types: [opened, reopened, synchronize, ready_for_review, labeled]
+  push:
+    branches:
+      - 'feature/WXT-*'
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
-  merge-when-labeled:
-    if: contains(github.event.pull_request.labels.*.name, 'automerge')
+  # PR 생성/업데이트 시: In Progress → In Review
+  transition-to-review:
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'ready_for_review')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - name: Extract WXT Issue Key
+        id: extract-issue
+        run: |
+          # PR 브랜치에서 WXT 키 추출
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          WXT_ISSUE=$(echo "$BRANCH_NAME" | grep -oE 'WXT-[0-9]+' | head -1)
+          echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
+          echo "Found WXT issue: $WXT_ISSUE"
+
+      - name: Transition to In Review
+        if: steps.extract-issue.outputs.issue_key != ''
+        env:
+          JIRA_URL: https://lee35460.atlassian.net
+          JIRA_USER: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
+          echo "🔄 Transitioning $WXT_ISSUE: In Progress → In Review"
+          
+          # Jira 이슈 상태 확인
+          CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+            -H "Accept: application/json" \
+            "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE" | \
+            jq -r '.fields.status.name // "Unknown"')
+          
+          echo "Current status: $CURRENT_STATUS"
+          
+          # In Progress → In Review 전이 (전이 ID: 9 "Submit PR")
+          if [[ "$CURRENT_STATUS" == "In Progress" ]]; then
+            curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+              -X POST \
+              -H "Accept: application/json" \
+              -H "Content-Type: application/json" \
+              -d '{"transition":{"id":"9"}}' \
+              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions"
+            echo "✅ Transitioned $WXT_ISSUE to In Review"
+          else
+            echo "⚠️ Issue $WXT_ISSUE is not in 'In Progress' status, skipping transition"
+          fi
+
+  # CI 성공 시: In Review → In Test
+  transition-to-test:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract WXT Issue Key from CI run
+        id: extract-issue
+        run: |
+          # CI가 실행된 브랜치에서 WXT 키 추출
+          BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
+          WXT_ISSUE=$(echo "$BRANCH_NAME" | grep -oE 'WXT-[0-9]+' | head -1)
+          echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
+          echo "Found WXT issue from CI run: $WXT_ISSUE"
+
+      - name: Transition to In Test
+        if: steps.extract-issue.outputs.issue_key != ''
+        env:
+          JIRA_URL: https://lee35460.atlassian.net
+          JIRA_USER: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
+          echo "🔄 Transitioning $WXT_ISSUE: In Review → In Test"
+          
+          # Jira 이슈 상태 확인
+          CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+            -H "Accept: application/json" \
+            "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE" | \
+            jq -r '.fields.status.name // "Unknown"')
+          
+          echo "Current status: $CURRENT_STATUS"
+          
+          # In Review → In Test 전이 (전이 ID: 11 "Merge & Approve")
+          if [[ "$CURRENT_STATUS" == "In Review" ]]; then
+            curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+              -X POST \
+              -H "Accept: application/json" \
+              -H "Content-Type: application/json" \
+              -d '{"transition":{"id":"11"}}' \
+              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions"
+            echo "✅ Transitioned $WXT_ISSUE to In Test"
+          else
+            echo "⚠️ Issue $WXT_ISSUE is not in 'In Review' status, skipping transition"
+          fi
+
+  # PR 머지 시: In Test → Done
+  transition-to-done:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract WXT Issue Key
+        id: extract-issue
+        run: |
+          # PR 브랜치에서 WXT 키 추출
+          BRANCH_NAME="${{ github.head_ref }}"
+          WXT_ISSUE=$(echo "$BRANCH_NAME" | grep -oE 'WXT-[0-9]+' | head -1)
+          echo "issue_key=$WXT_ISSUE" >> $GITHUB_OUTPUT
+          echo "Found WXT issue: $WXT_ISSUE"
+
+      - name: Auto Merge PR
+        uses: actions/github-script@v7
         env:
           JIRA_URL: https://lee35460.atlassian.net
         with:
@@ -20,35 +127,41 @@ jobs:
             const pr = context.payload.pull_request;
             const { owner, repo } = context.repo;
 
-            // 수집
-            const commits = await github.paginate(
-              github.rest.pulls.listCommits,
-              { owner, repo, pull_number: pr.number }
-            );
-            const subjects = commits.map(c => (c.commit.message||'').split('\n')[0]).filter(Boolean);
-
-            // 이슈 키 & 커밋 타이틀/메시지 생성
-            const findKey = s => (s||'').match(/WXT-\d+/i);
-            const issue = (findKey(pr.head.ref) || findKey(pr.title) || findKey(subjects.join('\n')) || [''])[0]?.toUpperCase() || '';
-            const normalizedTitle = pr.title?.replace(new RegExp(`^${issue}\\s*[:-]\\s*`,'i'),'').trim() || pr.title || 'Update';
-
-            const commit_title = issue ? `feat(${issue}): ${normalizedTitle}` : normalizedTitle;
-
-            const bullets = subjects.length ? subjects.map(s=>`- ${s}`).join('\n') : '- (no commits)';
-            const jiraLine = issue && process.env.JIRA_URL
-              ? `Jira: ${process.env.JIRA_URL}/browse/${issue}`
-              : (issue ? `Jira: ${issue}` : 'Jira: (none)');
-
-            const commit_message = [
-              bullets,
-              '',
-              jiraLine,
-              `PR: #${pr.number}`
-            ].join('\n');
-
-            // 머지 실행(merge commit 방식)
+            // PR 머지 실행
             await github.rest.pulls.merge({
               owner, repo, pull_number: pr.number,
-              merge_method: 'merge',              // ← squash/rebase 아님
-              commit_title, commit_message
+              merge_method: 'merge',
+              commit_title: `feat(${{ steps.extract-issue.outputs.issue_key }}): ${pr.title}`,
+              commit_message: `Merged PR #${pr.number}\n\nJira: ${process.env.JIRA_URL}/browse/${{ steps.extract-issue.outputs.issue_key }}`
             });
+
+      - name: Transition to Done
+        if: steps.extract-issue.outputs.issue_key != ''
+        env:
+          JIRA_URL: https://lee35460.atlassian.net
+          JIRA_USER: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          WXT_ISSUE="${{ steps.extract-issue.outputs.issue_key }}"
+          echo "🔄 Transitioning $WXT_ISSUE: In Test → Done"
+          
+          # Jira 이슈 상태 확인
+          CURRENT_STATUS=$(curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+            -H "Accept: application/json" \
+            "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE" | \
+            jq -r '.fields.status.name // "Unknown"')
+          
+          echo "Current status: $CURRENT_STATUS"
+          
+          # In Test → Done 전이 (전이 ID: 4)
+          if [[ "$CURRENT_STATUS" == "In Test" ]]; then
+            curl -s -u "$JIRA_USER:$JIRA_TOKEN" \
+              -X POST \
+              -H "Accept: application/json" \
+              -H "Content-Type: application/json" \
+              -d '{"transition":{"id":"4"}}' \
+              "$JIRA_URL/rest/api/3/issue/$WXT_ISSUE/transitions"
+            echo "✅ Transitioned $WXT_ISSUE to Done"
+          else
+            echo "⚠️ Issue $WXT_ISSUE is not in 'In Test' status, skipping transition"
+          fi
