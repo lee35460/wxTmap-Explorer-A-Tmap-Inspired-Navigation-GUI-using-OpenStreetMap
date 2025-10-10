@@ -237,7 +237,7 @@ jobs:
 
   # PR 머지 시: In Test → Done
   transition-to-done:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'automerge')
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Extract WXT Issue Key
