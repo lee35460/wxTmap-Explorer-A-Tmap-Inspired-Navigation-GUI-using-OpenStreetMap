@@ -23,6 +23,8 @@ wxTmap Explorer is a portfolio-ready desktop navigation GUI built with C++17, wx
 
 ---
 
+
+
 ## 📂 Project Structure
 
 ```
