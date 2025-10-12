@@ -32,7 +32,7 @@ inline void to_json(nlohmann::json& j, const LonLat& p) {
 // MapPanel 구현
 MapPanel::MapPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
     // WebView 초기화 코드 (생략)
-    hud_ = std::make_unique<ui::MapOverlayHud>(this); // HUD 오버레이 초기화 - unique_ptr로 메모리 안전성 보장
+    hud_ = new ui::MapOverlayHud(this); // HUD 오버레이 초기화 - wxWidgets 자동 관리
     dpiScale_ = GetContentScaleFactor(); // 초기 DPI 스케일 설정
 
     // --- Minimal visual HUD/Banner demo so we can SEE activity ---

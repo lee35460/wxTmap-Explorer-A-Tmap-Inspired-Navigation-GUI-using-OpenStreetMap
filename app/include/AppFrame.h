@@ -13,11 +13,7 @@ public:
 private:
     std::unique_ptr<RenderPipeline> render_;
     
-    // wxWidgets 컨트롤들은 unique_ptr로 관리하여 메모리 안전성 향상
-    std::unique_ptr<MapPanel> map_;
-    std::unique_ptr<wxTextCtrl> logBox_;
-    
-    // UI 컨트롤들의 원시 포인터 (sizer 관리용)
-    MapPanel* mapPtr_{nullptr};
-    wxTextCtrl* logBoxPtr_{nullptr};
+    // wxWidgets 컨트롤들은 부모에 의해 자동 관리됨 (double deletion 방지)
+    MapPanel* map_{nullptr};
+    wxTextCtrl* logBox_{nullptr};
 };

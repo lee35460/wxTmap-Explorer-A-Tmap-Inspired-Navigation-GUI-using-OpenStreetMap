@@ -9,6 +9,9 @@
 #include <cmath>             // M_PI, std::sin, std::cos 등 수학 함수
 #include <memory>            // unique_ptr 사용
 
+// 수학 상수 정의 (가독성 및 유지보수성 향상)
+constexpr double DEG_TO_RAD = M_PI / 180.0;
+
 // DataTestPanel 구현 - 기본 개념 학습에 집중
 wxBEGIN_EVENT_TABLE(DataTestPanel, wxPanel)
     EVT_BUTTON(ID_ADD_COORD, DataTestPanel::OnAddCoordinate)
@@ -1238,7 +1241,7 @@ wxPoint MapRenderPanel::LatLonToScreen(const LonLat& coord) const {
     double lonNormalized = (coord.lon + 180.0) / 360.0;
     
     // 2. 위도는 머케이터 투영법 적용
-    double latRad = coord.lat * M_PI / 180.0;
+    double latRad = coord.lat * DEG_TO_RAD;
     double latNormalized = (1.0 - std::log(std::tan(latRad) + 1.0/std::cos(latRad)) / M_PI) / 2.0;
     
     // 3. 줌 레벨 적용 (2^zoom 배율)
@@ -1246,7 +1249,7 @@ wxPoint MapRenderPanel::LatLonToScreen(const LonLat& coord) const {
     
     // 4. 중심 좌표 기준으로 상대 위치 계산
     double centerLonNormalized = (centerCoord_.lon + 180.0) / 360.0;
-    double centerLatRad = centerCoord_.lat * M_PI / 180.0;
+    double centerLatRad = centerCoord_.lat * DEG_TO_RAD;
     double centerLatNormalized = (1.0 - std::log(std::tan(centerLatRad) + 1.0/std::cos(centerLatRad)) / M_PI) / 2.0;
     
     // 5. 화면 중심을 기준으로 픽셀 좌표 계산
@@ -1276,7 +1279,7 @@ LonLat MapRenderPanel::ScreenToLatLon(const wxPoint& point) const {
     
     // 2. 중심 좌표의 정규화된 좌표
     double centerLonNormalized = (centerCoord_.lon + 180.0) / 360.0;
-    double centerLatRad = centerCoord_.lat * M_PI / 180.0;
+    double centerLatRad = centerCoord_.lat * DEG_TO_RAD;
     double centerLatNormalized = (1.0 - std::log(std::tan(centerLatRad) + 1.0/std::cos(centerLatRad)) / M_PI) / 2.0;
     
     // 3. 클릭 지점의 정규화된 좌표

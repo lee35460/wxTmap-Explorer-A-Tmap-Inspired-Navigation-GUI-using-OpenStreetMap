@@ -8,18 +8,16 @@
 static const int ID_TOGGLE_ANIM = wxID_HIGHEST + 100; // must match MapPanel
 
 
-// unique_ptr를 사용한 메모리 관리 자동화로 안전성과 현대적 C++ 스타일 적용
+// wxWidgets 자동 메모리 관리로 double deletion 방지
 AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
     render_ = std::make_unique<RenderPipeline>();
     
-    // unique_ptr로 생성하여 메모리 안전성 보장
-    map_ = std::make_unique<MapPanel>(this);
-    mapPtr_ = map_.get(); // sizer와 이벤트 처리를 위한 원시 포인터
+    // wxWidgets가 자동으로 자식 위젯을 관리 (부모 파괴시 자동 삭제)
+    map_ = new MapPanel(this);
     
-    // 로그 출력용 텍스트 박스도 unique_ptr로 관리
-    logBox_ = std::make_unique<wxTextCtrl>(this, wxID_ANY, "", wxDefaultPosition, wxSize(600, 100),
-                                          wxTE_MULTILINE | wxTE_READONLY);
-    logBoxPtr_ = logBox_.get();
+    // 로그 출력용 텍스트 박스
+    logBox_ = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(600, 100),
+                            wxTE_MULTILINE | wxTE_READONLY);
 
     auto* root = new wxBoxSizer(wxVERTICAL);
 
@@ -33,9 +31,9 @@ AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
     controls->Add(btnResetView, 0, wxALL, 5);
     root->Add(controls, 0, wxEXPAND);
 
-    // Map area and log box (원시 포인터 사용 - sizer는 원시 포인터 필요)
-    root->Add(mapPtr_, 1, wxEXPAND);
-    root->Add(logBoxPtr_, 0, wxEXPAND | wxALL, 5);
+    // Map area and log box
+    root->Add(map_, 1, wxEXPAND);
+    root->Add(logBox_, 0, wxEXPAND | wxALL, 5);
     SetSizerAndFit(root);
 
     // Wire: simulate a polyline so we can SEE activity in the GUI
@@ -53,7 +51,7 @@ AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
 
     btnResetView->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){
         // 맵 뷰 리셋 기능 - 현재는 간단한 새로고침으로 대체
-        mapPtr_->Refresh();
+        map_->Refresh();
     });
 }
 

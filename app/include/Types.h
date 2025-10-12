@@ -95,7 +95,7 @@ struct SimpleColor {
         
     // 16진수 문자열로 변환
     std::string ToHexString() const {
-        char hex[8];
+        char hex[8]; // 7문자 (#RRGGBB) + null terminator = 8 바이트
         snprintf(hex, sizeof(hex), "#%02X%02X%02X", r, g, b);
         return std::string(hex);
     }

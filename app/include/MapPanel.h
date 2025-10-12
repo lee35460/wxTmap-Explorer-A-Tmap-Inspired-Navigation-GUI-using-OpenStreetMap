@@ -25,7 +25,7 @@ public:
         hud_->ToggleVisible();
     }
 private:
-    std::unique_ptr<ui::MapOverlayHud> hud_;
+    ui::MapOverlayHud* hud_{nullptr}; // wxWidgets 자동 관리 (double deletion 방지)
     std::vector<LonLat> currentPolyline_;
     double routeProgress_{0.0};
     int zoomLevel_{15};

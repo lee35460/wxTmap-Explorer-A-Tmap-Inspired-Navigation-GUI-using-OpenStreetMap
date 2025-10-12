@@ -324,6 +324,7 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, AccessibilityComplianceVerification)
 TEST_F(WXT_58_WaypointListPanelTestFixture, InitialRenderingPerformanceVerification) {
     // 대용량 웨이포인트 데이터 생성 (1000개)
     std::vector<Waypoint> largeDataset;
+    largeDataset.reserve(1000); // 성능 최적화: 메모리 재할당 방지
     for (int i = 0; i < 1000; ++i) {
         Waypoint wp;
         wp.name = "Waypoint " + std::to_string(i + 1);

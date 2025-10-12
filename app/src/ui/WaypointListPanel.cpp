@@ -55,9 +55,11 @@ WaypointListPanel::WaypointListPanel(wxWindow* parent, wxWindowID id)
  * - 각 컨트롤의 목적과 속성 명확화
  */
 void WaypointListPanel::CreateControls() {
+    // 리스트 컨트롤 스타일 상수 정의 (가독성 및 유지보수성 향상)
+    constexpr long LIST_STYLE = wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES;
+    
     // 리스트 컨트롤 - 웨이포인트 목록 표시
-    listCtrl_ = new wxListCtrl(this, ID_LIST_CTRL, wxDefaultPosition, wxDefaultSize,
-                                wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES); // wxWidgets가 자동 관리
+    listCtrl_ = new wxListCtrl(this, ID_LIST_CTRL, wxDefaultPosition, wxDefaultSize, LIST_STYLE);
     
     // 컬럼 설정 - 사용자에게 유의미한 정보 제공
     listCtrl_->AppendColumn("순서", wxLIST_FORMAT_LEFT, 50);
