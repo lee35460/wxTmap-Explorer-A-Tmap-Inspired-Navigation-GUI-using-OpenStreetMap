@@ -62,6 +62,8 @@ set(SOURCES
     src/ui/TurnBanner.cpp
     src/ui/NavigationProgressBar.cpp
     src/ui/PolylineHighlight.cpp
+    src/ui/WaypointListPanel.cpp
+    src/DebugFrame.cpp
 )
 
 set(HEADERS
@@ -81,6 +83,8 @@ set(HEADERS
     include/ui/TurnBanner.h
     include/ui/NavigationProgressBar.h
     include/ui/PolylineHighlight.h
+    include/ui/WaypointListPanel.h
+    include/DebugFrame.h
 )
 
 # --- Render core library (shared by exe & tests) ---
@@ -126,6 +130,7 @@ if (BUILD_TESTING)
   src/ui/TurnBanner.cpp
   src/ui/NavigationProgressBar.cpp
   src/ui/PolylineHighlight.cpp
+  src/ui/WaypointListPanel.cpp
   )
   add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
   target_include_directories(unit_tests PRIVATE include)

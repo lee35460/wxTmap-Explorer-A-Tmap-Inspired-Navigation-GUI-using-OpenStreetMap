@@ -7,13 +7,17 @@
 
 static const int ID_TOGGLE_ANIM = wxID_HIGHEST + 100; // must match MapPanel
 
+
+// wxWidgets 자동 메모리 관리로 double deletion 방지
 AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
     render_ = std::make_unique<RenderPipeline>();
+    
+    // wxWidgets가 자동으로 자식 위젯을 관리 (부모 파괴시 자동 삭제)
     map_ = new MapPanel(this);
-
-    // 로그 출력용 텍스트 박스 추가
+    
+    // 로그 출력용 텍스트 박스
     logBox_ = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(600, 100),
-                             wxTE_MULTILINE | wxTE_READONLY);
+                            wxTE_MULTILINE | wxTE_READONLY);
 
     auto* root = new wxBoxSizer(wxVERTICAL);
 
@@ -23,6 +27,8 @@ AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
     controls->Add(btnSimRoute, 0, wxALL, 5);
     auto* btnToggleAnim = new wxButton(this, wxID_ANY, "Toggle Banner Anim");
     controls->Add(btnToggleAnim, 0, wxALL, 5);
+    auto* btnResetView = new wxButton(this, wxID_ANY, "Reset View");
+    controls->Add(btnResetView, 0, wxALL, 5);
     root->Add(controls, 0, wxEXPAND);
 
     // Map area and log box
@@ -43,10 +49,9 @@ AppFrame::AppFrame() : wxFrame(nullptr, wxID_ANY, "wxTmap Explorer") {
         OnRouteReady(path);
     });
 
-    btnToggleAnim->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){
-        wxCommandEvent ev(wxEVT_BUTTON, ID_TOGGLE_ANIM);
-        ev.SetEventObject(this);
-        wxPostEvent(map_, ev); // let MapPanel handle start/stop
+    btnResetView->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){
+        // 맵 뷰 리셋 기능 - 현재는 간단한 새로고침으로 대체
+        map_->Refresh();
     });
 }
 

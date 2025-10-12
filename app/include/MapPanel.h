@@ -2,14 +2,16 @@
 #include <wx/wx.h>
 #include <vector>
 #include <string>
+#include <memory>
 #include "render/RenderPipeline.h"  // LonLat 타입 사용을 위해
 #include "ui/MapOverlayHud.h"
 #include "ui/MapOverlayTheme.h"
 #include "ui/PolylineStyler.h"
 
+// 맵 패널: WebView + HUD + Polyline 렌더링
 class MapPanel : public wxPanel {
 public:
-    explicit MapPanel(wxWindow* parent);
+    explicit MapPanel(wxWindow* parent); // explicit 생성자: 단일 인자 생성자 방지
     void DrawPolyline(const std::vector<LonLat>& coords);
 
     // HUD 바인딩 및 제어
@@ -23,7 +25,7 @@ public:
         hud_->ToggleVisible();
     }
 private:
-    ui::MapOverlayHud* hud_;
+    ui::MapOverlayHud* hud_{nullptr}; // wxWidgets 자동 관리 (double deletion 방지)
     std::vector<LonLat> currentPolyline_;
     double routeProgress_{0.0};
     int zoomLevel_{15};

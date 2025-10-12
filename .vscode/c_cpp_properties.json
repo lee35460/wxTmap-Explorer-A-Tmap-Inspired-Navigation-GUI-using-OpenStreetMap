@@ -1,0 +1,43 @@
+{
+
+    "configurations": [
+
+        {
+
+            "name": "Mac",
+
+            "includePath": [
+
+                "/opt/homebrew/opt/wxwidgets/include",
+                "/Users/ljw0904/ICES Lab Dropbox/LEE kyung-min/Mac (3)/Desktop/project/udacity/C++/wxTmap-Explorer-A-Tmap-Inspired-Navigation-GUI-using-OpenStreetMap/app/src/ui",
+
+                "/**"
+
+            ],
+
+            "defines": [],
+
+            "macFrameworkPath": [
+
+                "/System/Library/Frameworks",
+
+                "/Library/Frameworks"
+
+            ],
+
+            "compilerPath": "/usr/bin/clang++",
+
+            "cStandard": "c11",
+
+            "cppStandard": "c++17",
+
+            "intelliSenseMode": "macos-clang-x64"
+
+        }
+
+    ],
+
+    "version": 4
+
+}
+

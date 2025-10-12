@@ -1,12 +1,7 @@
 #pragma once
 #include <vector>
 #include <chrono>
-
-// Basic geographic coordinate struct
-struct LonLat {
-    double lon{};  // longitude in degrees
-    double lat{};  // latitude in degrees
-};
+#include "../Types.h"  // 🔧 LonLat 정의를 Types.h에서 가져오기
 
 // Sliding window size for FPS averaging
 constexpr size_t MAX_SAMPLES = 120;
