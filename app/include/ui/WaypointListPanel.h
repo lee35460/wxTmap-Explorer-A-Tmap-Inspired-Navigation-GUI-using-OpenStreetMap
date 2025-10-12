@@ -5,7 +5,21 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <map>  // 🔧 std::map 추가
 #include "Types.h"
+
+// 🔧 누락된 클래스들 Forward Declaration 또는 간단 정의
+class WaypointValidator {
+public:
+    bool IsValid(const Waypoint& wp) const { return wp.coordinates.IsValid(); }
+};
+
+class DistanceCalculator {
+public:
+    double Calculate(const Waypoint& a, const Waypoint& b) const {
+        return a.coordinates.DistanceTo(b.coordinates);
+    }
+};
 
 // 🎯 설계 원칙: Modern C++의 unique_ptr를 활용한 안전한 메모리 관리
 // wxWidgets 컴포넌트들은 부모에 의해 자동 관리되므로, 
@@ -99,49 +113,4 @@ private:
     wxDECLARE_EVENT_TABLE();
 };
 
-/**
- * @brief 웨이포인트 유효성 검사 클래스
- * 
- * 🎯 설계 원리: 단일 책임 원칙 (SRP)
- * - 웨이포인트 데이터 검증만 담당
- * - 재사용 가능한 독립적인 컴포넌트
- */
-class WaypointValidator {
-public:
-    struct ValidationResult {
-        bool isValid;
-        std::string errorMessage;
-    };
-    
-    ValidationResult ValidateWaypoint(const Waypoint& waypoint) const;
-    ValidationResult ValidateWaypointList(const std::vector<Waypoint>& waypoints) const;
-    
-private:
-    bool IsValidCoordinate(double lat, double lon) const;
-    bool IsValidAddress(const std::string& address) const;
-};
-
-/**
- * @brief 거리 및 시간 계산 클래스
- * 
- * 🎯 설계 원리: 전략 패턴 (Strategy Pattern)
- * - 다양한 거리 계산 알고리즘을 지원
- * - 실시간 계산과 캐싱을 통한 성능 최적화
- */
-class DistanceCalculator {
-public:
-    struct RouteInfo {
-        double totalDistance;  // 총 거리 (km)
-        double estimatedTime;  // 예상 시간 (분)
-        std::vector<double> segmentDistances; // 구간별 거리
-    };
-    
-    RouteInfo CalculateRoute(const std::vector<Waypoint>& waypoints);
-    double CalculateDistance(const Waypoint& from, const Waypoint& to);
-    
-private:
-    // 🧠 캐싱을 통한 성능 최적화
-    std::unique_ptr<std::map<std::pair<Waypoint, Waypoint>, double>> distanceCache_;
-    
-    double HaversineDistance(double lat1, double lon1, double lat2, double lon2) const;
-};
+// 중복 정의 제거 - 위에서 이미 간단한 버전으로 정의됨

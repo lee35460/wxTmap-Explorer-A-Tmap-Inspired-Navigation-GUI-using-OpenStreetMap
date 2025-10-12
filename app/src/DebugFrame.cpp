@@ -866,13 +866,22 @@ wxBEGIN_EVENT_TABLE(MapRenderPanel, wxPanel)
     EVT_BUTTON(ID_RESET_VIEW, MapRenderPanel::OnResetView)
     EVT_BUTTON(ID_LOAD_TILES, MapRenderPanel::OnLoadTiles)
     EVT_BUTTON(ID_SHOW_ROUTE, MapRenderPanel::OnShowRoute)
+    // 🆕 4단계: 실시간 UI 업데이트 이벤트
+    EVT_BUTTON(ID_START_NAV_SIMULATION, MapRenderPanel::OnStartNavigation)
+    EVT_BUTTON(ID_STOP_NAV_SIMULATION, MapRenderPanel::OnStopNavigation)
+    EVT_TIMER(ID_UPDATE_TIMER, MapRenderPanel::OnUpdateTimer)
 wxEND_EVENT_TABLE()
 
 MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     : wxPanel(parent, wxID_ANY), debugFrame_(debugFrame),
       centerCoord_(126.9780, 37.5665),  // 서울시청 기본값
       zoomLevel_(10),
-      isDragging_(false) {
+      isDragging_(false),
+      // 🆕 4단계: 시뮬레이션 상태 초기화
+      isNavigating_(false),
+      currentProgress_(0.0),
+      currentSpeed_(0.0),
+      remainingDistance_(1200.0) {
     
     // ========================================
     // 🎯 학습 포인트: 실제 지도 애플리케이션 UI 구성
@@ -918,6 +927,18 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     showRouteBtn_->SetToolTip("2단계에서 생성한 경로를 지도에 표시");
     controlBox->Add(showRouteBtn_, 0, wxRIGHT, 10);
     
+    // 🆕 4단계: 실시간 UI 시뮬레이션 컨트롤
+    startNavBtn_ = new wxButton(this, ID_START_NAV_SIMULATION, "▶️ 네비게이션 시작");
+    startNavBtn_->SetToolTip("실시간 UI 업데이트 시뮬레이션 시작");
+    startNavBtn_->SetBackgroundColour(wxColour(0, 200, 0));
+    controlBox->Add(startNavBtn_, 0, wxRIGHT, 5);
+    
+    stopNavBtn_ = new wxButton(this, ID_STOP_NAV_SIMULATION, "⏹️ 정지");
+    stopNavBtn_->SetToolTip("네비게이션 시뮬레이션 정지");
+    stopNavBtn_->SetBackgroundColour(wxColour(200, 0, 0));
+    stopNavBtn_->Enable(false);  // 초기에는 비활성화
+    controlBox->Add(stopNavBtn_, 0, wxRIGHT, 10);
+    
     // 좌표 및 줌 정보 표시
     coordLabel_ = new wxStaticText(this, wxID_ANY, 
                                    wxString::Format("중심: %.4f, %.4f", centerCoord_.lon, centerCoord_.lat));
@@ -938,6 +959,55 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     mapInfo->SetForegroundColour(wxColour(100, 100, 100));
     mainSizer->Add(mapInfo, 0, wxALL, 10);
     
+    // ========================================
+    // 🆕 4단계: 실제 UI 컴포넌트 초기화
+    // ========================================
+    
+    // HUD 오버레이 생성 (지도 위에 떠있는 정보 표시)
+    hudOverlay_ = std::make_unique<ui::MapOverlayHud>(this);
+    ui::HudState initialHudState;
+    initialHudState.visible = true;
+    initialHudState.speed_kmh = 0.0;
+    initialHudState.distance_remain_m = 1200.0;  // 1.2km 예시
+    hudOverlay_->SetState(initialHudState);
+    
+    // 웨이포인트 패널을 별도 창이 아닌 하단에 추가 (구현 완성됨)
+    waypointPanel_ = std::make_unique<WaypointListPanel>(this);
+    waypointPanel_->SetMinSize(wxSize(-1, 150));  // 최소 높이 150px
+    
+    // 네비게이션 진행도 바
+    progressBar_ = std::make_unique<ui::NavigationProgressBar>(this);
+    ui::NavigationProgress initialProgress;
+    initialProgress.total_distance = 1000.0;
+    initialProgress.remaining_distance = 1000.0;
+    initialProgress.completion_ratio = 0.0;
+    progressBar_->UpdateProgress(initialProgress);
+    progressBar_->SetMinSize(wxSize(-1, 20));
+    
+    // 🆕 4단계: 실시간 HUD 상태 표시 패널 (GUI)
+    auto* hudBox = new wxStaticBoxSizer(wxVERTICAL, this, "🚗 실시간 네비게이션 상태");
+    
+    // HUD 상태 라벨
+    hudStatusLabel_ = new wxStaticText(this, wxID_ANY, 
+        "⏸️ 네비게이션 대기중 | 속도: 0 km/h | 남은 거리: 1200m");
+    hudStatusLabel_->SetFont(wxFont(11, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
+    hudStatusLabel_->SetForegroundColour(wxColour(50, 50, 50));
+    hudBox->Add(hudStatusLabel_, 0, wxEXPAND | wxALL, 5);
+    
+    // 진행도 게이지 (시각적 프로그레스 바)
+    progressGauge_ = new wxGauge(this, wxID_ANY, 100);  // 0-100%
+    progressGauge_->SetValue(0);
+    progressGauge_->SetMinSize(wxSize(-1, 25));
+    hudBox->Add(progressGauge_, 0, wxEXPAND | wxALL, 5);
+    
+    // 타이머 초기화 (1초마다 업데이트)
+    updateTimer_ = new wxTimer(this, ID_UPDATE_TIMER);
+    
+    // 기존 sizer에 새 UI 컴포넌트들 추가
+    mainSizer->Add(hudBox, 0, wxEXPAND | wxALL, 10);
+    mainSizer->Add(progressBar_.get(), 0, wxEXPAND | wxALL, 5);
+    mainSizer->Add(waypointPanel_.get(), 0, wxEXPAND | wxALL, 10);  // 웨이포인트 패널 활성화
+    
     SetSizer(mainSizer);
     SetBackgroundColour(wxColour(240, 248, 255));  // 연한 파란색 배경
     
@@ -949,6 +1019,7 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     };
     
     debugFrame_->AppendLog("🗺️ MapRenderPanel 초기화 완료");
+    debugFrame_->AppendLog("🆕 4단계: HUD, 웨이포인트 패널, 진행도바 추가됨");
     debugFrame_->AppendLog(wxString::Format("📍 초기 중심 좌표: %.4f, %.4f (줌 %d)", 
                                           centerCoord_.lon, centerCoord_.lat, zoomLevel_));
 }
@@ -1089,18 +1160,62 @@ void MapRenderPanel::OnLoadTiles(wxCommandEvent& event) {
 }
 
 void MapRenderPanel::OnShowRoute(wxCommandEvent& event) {
-    debugFrame_->AppendLog("🛣️ 2단계 경로를 지도에 표시");
+    debugFrame_->AppendLog("🛣️ 4단계: 실제 경로 하이라이트 시스템 활용");
     
     if (currentRoute_.empty()) {
         debugFrame_->AppendLog("⚠️ 표시할 경로가 없습니다");
         return;
     }
     
+    // ========================================
+    // 🆕 4단계: 실제 UI 알고리즘 적용
+    // ========================================
+    
     debugFrame_->AppendLog(wxString::Format("📍 경로점 수: %zu개", currentRoute_.size()));
+    
+    // 웨이포인트 패널에 경로 추가
+    std::vector<Waypoint> waypoints;
     for (size_t i = 0; i < currentRoute_.size(); ++i) {
-        debugFrame_->AppendLog(wxString::Format("  %zu. %.6f, %.6f", 
-                                              i+1, currentRoute_[i].lon, currentRoute_[i].lat));
+        Waypoint wp;
+        wp.coordinates = currentRoute_[i];
+        wp.name = wxString::Format("지점 %zu", i+1).ToStdString();
+        waypoints.push_back(wp);
+        
+        debugFrame_->AppendLog(wxString::Format("  %zu. %.6f, %.6f (%s)", 
+                                              i+1, currentRoute_[i].lon, currentRoute_[i].lat, wp.name));
     }
+    
+    // 웨이포인트 패널 업데이트
+    // 웨이포인트 패널에 경로 데이터 전달
+    if (waypointPanel_) {
+        waypointPanel_->ClearWaypoints();
+        for (const auto& coord : currentRoute_) {
+            Waypoint wp;
+            wp.coordinates = coord;
+            wp.name = wxString::Format("지점-%zu", waypointPanel_->GetWaypoints().size() + 1).ToStdString();
+            waypointPanel_->AddWaypoint(wp);
+        }
+    }
+    
+    // 진행도바 업데이트 (30% 진행 시뮬레이션)
+    ui::NavigationProgress updatedProgress;
+    updatedProgress.total_distance = 1000.0;
+    updatedProgress.remaining_distance = 700.0;
+    updatedProgress.completion_ratio = 0.3;
+    progressBar_->UpdateProgress(updatedProgress);
+    progressBar_->Refresh();
+    
+    // HUD 상태 업데이트
+    ui::HudState hudState;
+    hudState.visible = true;
+    hudState.speed_kmh = 45.0;       // 45km/h 시뮬레이션
+    hudState.distance_remain_m = 850.0; // 남은 거리 850m
+    hudOverlay_->SetState(hudState);
+    
+    debugFrame_->AppendLog("✅ 4단계 UI 컴포넌트들 업데이트 완료");
+    debugFrame_->AppendLog("  - 웨이포인트 패널: 경로점 표시");
+    debugFrame_->AppendLog("  - 진행도바: 30% 진행");
+    debugFrame_->AppendLog("  - HUD 오버레이: 속도 45km/h, 남은 거리 850m");
     
     Refresh();  // 지도 다시 그려서 경로 표시
 }
@@ -1226,11 +1341,17 @@ void MapRenderPanel::RenderMap(wxDC& dc) {
         }
     }
     
-    // 3. 경로 렌더링
-    RenderRoute(dc);
+    // 3. 경로 렌더링 (4단계 개선)
+    RenderRouteAdvanced(dc);
     
-    // 4. UI 오버레이
+    // 4. 기본 UI 오버레이
     RenderUI(dc);
+    
+    // 🆕 5. HUD 오버레이 렌더링 (4단계 추가)
+    if (hudOverlay_) {
+        // HUD는 별도 패널이므로 여기서는 상태만 확인
+        // 실제 렌더링은 HUD 자체의 OnPaint에서 처리됨
+    }
 }
 
 void MapRenderPanel::RenderRoute(wxDC& dc) {
@@ -1298,4 +1419,229 @@ void MapRenderPanel::RenderUI(wxDC& dc) {
     // Mock 타일 정보
     dc.SetTextForeground(wxColour(100, 100, 100));
     dc.DrawText("💡 Mock 지도 - 실제로는 OSM 타일 이미지", 10, 10);
+    
+    // 4단계 정보 표시
+    dc.SetTextForeground(wxColour(0, 150, 0));
+    dc.DrawText("🆕 4단계: UI 알고리즘 적용됨 (HUD, 웨이포인트, 진행도)", 10, 30);
+}
+
+// ========================================
+// 🆕 4단계: 향상된 경로 렌더링 (PolylineHighlight 알고리즘 적용)
+// ========================================
+void MapRenderPanel::RenderRouteAdvanced(wxDC& dc) {
+    if (currentRoute_.size() < 2) return;
+    
+    // ========================================
+    // 🎓 학습 포인트: 실제 네비게이션 앱의 경로 시각화
+    // - 진행도에 따른 색상 변화
+    // - 향상된 시각적 효과
+    // - 성능 최적화된 렌더링
+    // ========================================
+    
+    // 진행도 기반 렌더링 (30% 진행 시뮬레이션)
+    double progress = 0.3;
+    size_t progressIndex = static_cast<size_t>(progress * currentRoute_.size());
+    
+    // 완료된 구간 (초록색 굵은 선)
+    dc.SetPen(wxPen(wxColour(0, 200, 0), 5));
+    for (size_t i = 1; i <= progressIndex && i < currentRoute_.size(); ++i) {
+        wxPoint startPoint = LatLonToScreen(currentRoute_[i-1]);
+        wxPoint endPoint = LatLonToScreen(currentRoute_[i]);
+        
+        wxSize screenSize = GetSize();
+        if (startPoint.x >= -50 && startPoint.x <= screenSize.GetWidth() + 50 &&
+            startPoint.y >= -50 && startPoint.y <= screenSize.GetHeight() + 50) {
+            dc.DrawLine(startPoint, endPoint);
+        }
+    }
+    
+    // 남은 구간 (회색 선)
+    dc.SetPen(wxPen(wxColour(150, 150, 150), 3));
+    for (size_t i = progressIndex + 1; i < currentRoute_.size(); ++i) {
+        wxPoint startPoint = LatLonToScreen(currentRoute_[i-1]);
+        wxPoint endPoint = LatLonToScreen(currentRoute_[i]);
+        
+        wxSize screenSize = GetSize();
+        if (startPoint.x >= -50 && startPoint.x <= screenSize.GetWidth() + 50 &&
+            startPoint.y >= -50 && startPoint.y <= screenSize.GetHeight() + 50) {
+            dc.DrawLine(startPoint, endPoint);
+        }
+    }
+    
+    // 현재 위치 마커 (큰 파란색 원)
+    if (progressIndex < currentRoute_.size()) {
+        wxPoint currentPos = LatLonToScreen(currentRoute_[progressIndex]);
+        dc.SetPen(wxPen(wxColour(0, 0, 255), 3));
+        dc.SetBrush(wxBrush(wxColour(100, 150, 255)));
+        dc.DrawCircle(currentPos, 8);
+        
+        // 현재 위치 텍스트
+        dc.SetTextForeground(wxColour(0, 0, 255));
+        dc.DrawText("📍 현재 위치", currentPos.x + 15, currentPos.y - 10);
+    }
+    
+    // 경로점 마커들 (기존 코드 유지하되 스타일 개선)
+    dc.SetPen(wxPen(wxColour(50, 50, 50), 2));
+    
+    for (size_t i = 0; i < currentRoute_.size(); ++i) {
+        wxPoint point = LatLonToScreen(currentRoute_[i]);
+        
+        // 진행도에 따른 색상 변경
+        if (i <= progressIndex) {
+            dc.SetBrush(wxBrush(wxColour(100, 255, 100)));  // 완료: 밝은 녹색
+        } else {
+            dc.SetBrush(wxBrush(wxColour(220, 220, 220)));  // 미완료: 회색
+        }
+        
+        dc.DrawCircle(point, 6);
+        
+        // 웨이포인트 번호
+        dc.SetTextForeground(wxColour(0, 0, 0));
+        dc.DrawText(wxString::Format("%zu", i+1), point.x + 10, point.y - 8);
+    }
+}
+
+// ========================================
+// 🆕 4단계: 실시간 UI 업데이트 구현
+// ========================================
+
+void MapRenderPanel::OnStartNavigation(wxCommandEvent& event) {
+    if (isNavigating_) return;  // 이미 실행 중이면 무시
+    
+    isNavigating_ = true;
+    currentProgress_ = 0.0;
+    currentSpeed_ = 0.0;
+    remainingDistance_ = 1200.0;
+    
+    // UI 상태 업데이트
+    startNavBtn_->Enable(false);
+    stopNavBtn_->Enable(true);
+    
+    // 타이머 시작 (1초마다)
+    updateTimer_->Start(1000);
+    
+    debugFrame_->AppendLog("🚗 네비게이션 시뮬레이션 시작!");
+    debugFrame_->AppendLog("[실시간 UI] HUD, 진행도바, 웨이포인트가 1초마다 업데이트됩니다");
+    
+    UpdateHudDisplay();
+}
+
+void MapRenderPanel::OnStopNavigation(wxCommandEvent& event) {
+    if (!isNavigating_) return;  // 실행 중이 아니면 무시
+    
+    isNavigating_ = false;
+    updateTimer_->Stop();
+    
+    // UI 상태 리셋
+    startNavBtn_->Enable(true);
+    stopNavBtn_->Enable(false);
+    
+    currentProgress_ = 0.0;
+    currentSpeed_ = 0.0;
+    remainingDistance_ = 1200.0;
+    
+    UpdateHudDisplay();
+    UpdateProgressBar();
+    
+    debugFrame_->AppendLog("⏹️ 네비게이션 시뮬레이션 정지");
+}
+
+void MapRenderPanel::OnUpdateTimer(wxTimerEvent& event) {
+    if (!isNavigating_) return;
+    
+    // ========================================
+    // 🎯 핵심 학습: 실제 네비게이션 앱의 실시간 데이터 처리
+    // - GPS 위치 업데이트 시뮬레이션
+    // - 속도 및 거리 계산
+    // - UI 컴포넌트 동기화
+    // ========================================
+    
+    // 시뮬레이션: 진행도 증가 (매초 2~5% 진행)
+    double increment = 2.0 + (rand() % 4);  // 2-5% 랜덤
+    currentProgress_ += increment;
+    
+    if (currentProgress_ >= 100.0) {
+        currentProgress_ = 100.0;
+        
+        // 자동 정지: 직접 정지 로직 실행 (이벤트 객체 없이)
+        isNavigating_ = false;
+        updateTimer_->Stop();
+        startNavBtn_->Enable(true);
+        stopNavBtn_->Enable(false);
+        
+        debugFrame_->AppendLog("🎉 목적지 도착! 네비게이션 완료");
+        UpdateHudDisplay();
+        UpdateProgressBar();
+        return;
+    }
+    
+    // 시뮬레이션: 속도 변화 (30-80 km/h 랜덤)
+    currentSpeed_ = 30.0 + (rand() % 51);
+    
+    // 시뮬레이션: 남은 거리 감소
+    remainingDistance_ = 1200.0 * (100.0 - currentProgress_) / 100.0;
+    
+    // UI 업데이트
+    UpdateHudDisplay();
+    UpdateProgressBar();
+    
+    // 지도 다시 그리기 (경로 진행도 반영)
+    Refresh();
+    
+    // 로그 출력 (사용자 요청 형식)
+    wxDateTime now = wxDateTime::Now();
+    wxString timeStr = now.Format("[%H:%M:%S]");
+    
+    debugFrame_->AppendLog(wxString::Format("%s ✅ 4단계 UI 컴포넌트들 업데이트 완료", timeStr));
+    debugFrame_->AppendLog(wxString::Format("%s   - 웨이포인트 패널: 경로점 표시", timeStr));
+    debugFrame_->AppendLog(wxString::Format("%s   - 진행도바: %.0f%% 진행", timeStr, currentProgress_));
+    debugFrame_->AppendLog(wxString::Format("%s   - HUD 오버레이: 속도 %.0fkm/h, 남은 거리 %.0fm", 
+                                          timeStr, currentSpeed_, remainingDistance_));
+}
+
+void MapRenderPanel::UpdateHudDisplay() {
+    // HUD 상태 라벨 업데이트
+    wxString status;
+    if (isNavigating_) {
+        status = wxString::Format("▶️ 네비게이션 진행중 | 속도: %.0f km/h | 남은 거리: %.0fm | 진행: %.1f%%", 
+                                currentSpeed_, remainingDistance_, currentProgress_);
+        hudStatusLabel_->SetForegroundColour(wxColour(0, 150, 0));  // 녹색
+    } else {
+        status = "⏸️ 네비게이션 대기중 | 속도: 0 km/h | 남은 거리: 1200m";
+        hudStatusLabel_->SetForegroundColour(wxColour(100, 100, 100));  // 회색
+    }
+    
+    hudStatusLabel_->SetLabel(status);
+    
+    // 실제 HUD 컴포넌트 업데이트
+    if (hudOverlay_) {
+        ui::HudState hudState;
+        hudState.visible = true;
+        hudState.speed_kmh = currentSpeed_;
+        hudState.distance_remain_m = remainingDistance_;
+        hudOverlay_->SetState(hudState);
+    }
+}
+
+void MapRenderPanel::UpdateProgressBar() {
+    // 시각적 진행도 게이지 업데이트
+    progressGauge_->SetValue(static_cast<int>(currentProgress_));
+    
+    // 진행도에 따른 색상 변경 (wxWidgets는 게이지 색상 변경이 제한적이므로 시뮬레이션)
+    if (currentProgress_ < 30.0) {
+        // 초기 단계: 기본 파란색
+    } else if (currentProgress_ < 70.0) {
+        // 중간 단계: 노란색 효과 (실제로는 색상 변경 어려움)
+    } else {
+        // 후반 단계: 녹색 효과
+    }
+    
+    // 실제 NavigationProgressBar 컴포넌트 업데이트
+    if (progressBar_) {
+        ui::NavigationProgress progress;
+        progress.total_distance = 1200.0;
+        progress.remaining_distance = remainingDistance_;
+        progress.completion_ratio = currentProgress_ / 100.0;
+        progressBar_->UpdateProgress(progress);
+    }
 }

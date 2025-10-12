@@ -15,6 +15,12 @@
 #include <vector>
 #include "Types.h"  // 🆕 LonLat 정의를 위해 추가
 
+// 🆕 4단계: UI 컴포넌트 헤더 추가 (단계적 적용)
+#include "ui/MapOverlayHud.h"
+#include "ui/NavigationProgressBar.h"
+#include "ui/WaypointListPanel.h"  // WaypointListPanel 활성화
+// #include "ui/PolylineHighlight.h"  // 임시 주석 처리
+
 // Forward declarations
 class RenderPipeline;
 class MapRenderPanel;  // 🆕 3단계용 forward declaration
@@ -178,6 +184,13 @@ private:
     void OnLoadTiles(wxCommandEvent& event);
     void OnShowRoute(wxCommandEvent& event);
     
+    // 🆕 4단계: 실시간 UI 업데이트 이벤트 핸들러
+    void OnStartNavigation(wxCommandEvent& event);
+    void OnStopNavigation(wxCommandEvent& event);
+    void OnUpdateTimer(wxTimerEvent& event);
+    void UpdateHudDisplay();
+    void UpdateProgressBar();
+    
     // 좌표계 변환 함수들 (머케이터 투영법)
     wxPoint LatLonToScreen(const LonLat& coord) const;
     LonLat ScreenToLatLon(const wxPoint& point) const;
@@ -186,6 +199,7 @@ private:
     // 렌더링 관련
     void RenderMap(wxDC& dc);
     void RenderRoute(wxDC& dc);
+    void RenderRouteAdvanced(wxDC& dc);  // 🆕 4단계: 향상된 경로 렌더링
     void RenderUI(wxDC& dc);
     
     // 지도 상태
@@ -200,14 +214,33 @@ private:
     // 경로 데이터 (2단계에서 가져올 예정)
     std::vector<LonLat> currentRoute_;
     
-    // UI 컨트롤들
+    // 🆕 4단계: 실제 UI 컴포넌트들 (단계적 적용)
+    std::unique_ptr<ui::MapOverlayHud> hudOverlay_;
+    std::unique_ptr<ui::NavigationProgressBar> progressBar_;
+    std::unique_ptr<WaypointListPanel> waypointPanel_;  // WaypointListPanel 활성화
+    
+    // 기본 UI 컨트롤들
     wxButton* zoomInBtn_;
     wxButton* zoomOutBtn_;
     wxButton* resetBtn_;
     wxButton* loadTilesBtn_;
     wxButton* showRouteBtn_;
+    
+    // 🆕 4단계: 실시간 UI 업데이트 컨트롤들
+    wxButton* startNavBtn_;
+    wxButton* stopNavBtn_;
+    wxTimer* updateTimer_;
+    wxStaticText* hudStatusLabel_;
+    wxGauge* progressGauge_;
+    
     wxStaticText* coordLabel_;
     wxStaticText* zoomLabel_;
+    
+    // 시뮬레이션 상태
+    bool isNavigating_;
+    double currentProgress_;
+    double currentSpeed_;
+    double remainingDistance_;
     
     DebugFrame* debugFrame_;
     
@@ -237,5 +270,10 @@ enum {
     ID_ZOOM_OUT = 3003,
     ID_RESET_VIEW = 3004,
     ID_LOAD_TILES = 3005,
-    ID_SHOW_ROUTE = 3006
+    ID_SHOW_ROUTE = 3006,
+    
+    // 🆕 4단계: 실시간 UI 업데이트
+    ID_START_NAV_SIMULATION = 3007,
+    ID_STOP_NAV_SIMULATION = 3008,
+    ID_UPDATE_TIMER = 3009
 };
