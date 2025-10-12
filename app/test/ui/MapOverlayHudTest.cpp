@@ -6,9 +6,26 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <memory>
 
-TEST(WXT_55_MapOverlayTest, HudOverlayRenderingPerformance) {
-    ui::HudState state;
+// 복잡한 테스트를 위한 픽스처 클래스 (unique_ptr로 메모리 관리 자동화)
+class WXT_55_MapOverlayHudTestFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // unique_ptr로 복잡한 상태 객체들 관리
+        hudState_ = std::make_unique<ui::HudState>();
+        // wxWidgets 객체들은 스택에서 관리 (RAII로 충분히 안전)
+    }
+    
+    // TearDown() 불필요! unique_ptr가 소멸자에서 자동으로 정리됨
+    
+protected:
+    std::unique_ptr<ui::HudState> hudState_;
+};
+
+// 픽스처를 사용하는 복잡한 테스트로 변경
+TEST_F(WXT_55_MapOverlayHudTestFixture, HudOverlayRenderingPerformance) {
+    // wxWidgets 객체들은 스택 기반 유지 (이미 안전함)
     wxBitmap bmp(800, 600);
     wxMemoryDC memDC(bmp);
     wxBufferedDC dc(&memDC, bmp);
@@ -18,7 +35,8 @@ TEST(WXT_55_MapOverlayTest, HudOverlayRenderingPerformance) {
     int frame_count = 100;
     
     for (int i = 0; i < frame_count; ++i) {
-        ui::MapOverlayHud::DrawHudStatic(dc, state, 1);
+        // 픽스처의 unique_ptr로 관리되는 상태 사용
+        ui::MapOverlayHud::DrawHudStatic(dc, *hudState_, 1);
     }
     
     auto end = std::chrono::steady_clock::now();
@@ -33,8 +51,9 @@ TEST(WXT_55_MapOverlayTest, HudOverlayRenderingPerformance) {
     EXPECT_GE(fps, 30.0);
 }
 
-TEST(WXT_55_SpeedDisplayTest, SpeedAccuracyVerification) {
-    ui::HudState state;
+TEST_F(WXT_55_MapOverlayHudTestFixture, SpeedAccuracyVerification) {
+    // 픽스처의 상태 객체 활용
+    hudState_->speed_kmh = 60.5; // 실제 속도 설정
     double actual_speed = 60.5; // km/h
     double displayed_speed = 60.2; // 표시된 속도 (시뮬레이션)
     
@@ -49,7 +68,7 @@ TEST(WXT_55_SpeedDisplayTest, SpeedAccuracyVerification) {
     EXPECT_LE(error_rate, 5.0);
 }
 
-TEST(WXT_55_DistanceCalculationTest, DistanceAndETAAccuracy) {
+TEST_F(WXT_55_MapOverlayHudTestFixture, DistanceAndETAAccuracy) {
     // 거리 계산 정확성 테스트
     double expected_distance = 1000.0; // 예상 거리 (m)
     double calculated_distance = 998.5; // 계산된 거리
@@ -65,8 +84,7 @@ TEST(WXT_55_DistanceCalculationTest, DistanceAndETAAccuracy) {
     EXPECT_LE(calculation_error, 1.0);
 }
 
-TEST(WXT_55_HudTransparencyTest, TransparencyControlVerification) {
-    ui::HudState state;
+TEST_F(WXT_55_MapOverlayHudTestFixture, TransparencyControlVerification) {
     // 투명도 설정 테스트 (0.1 ~ 1.0 범위)
     double transparency = 0.75; // 설정된 투명도
     
@@ -83,16 +101,15 @@ TEST(WXT_55_HudTransparencyTest, TransparencyControlVerification) {
     EXPECT_LE(transparency, 1.0);
 }
 
-TEST(WXT_55_RealTimeUpdateTest, RealTimeDataUpdatePerformance) {
+TEST_F(WXT_55_MapOverlayHudTestFixture, RealTimeDataUpdatePerformance) {
     // 실시간 데이터 업데이트 성능 테스트
     auto start = std::chrono::steady_clock::now();
     
-    // 데이터 업데이트 시뮬레이션
-    ui::HudState state;
+    // 픽스처의 상태 객체를 사용한 데이터 업데이트 시뮬레이션
     for (int i = 0; i < 10; ++i) {
-        // 데이터 업데이트 시뮬레이션
-        state.speed_kmh = 50.0 + i;
-        state.distance_remain_m = 1000.0 - i * 10;
+        // 픽스처의 unique_ptr 상태 객체 업데이트
+        hudState_->speed_kmh = 50.0 + i;
+        hudState_->distance_remain_m = 1000.0 - i * 10;
         std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 업데이트 작업 시뮬레이션
     }
     

@@ -62,6 +62,7 @@ set(SOURCES
     src/ui/TurnBanner.cpp
     src/ui/NavigationProgressBar.cpp
     src/ui/PolylineHighlight.cpp
+    src/DebugFrame.cpp
 )
 
 set(HEADERS
@@ -81,6 +82,7 @@ set(HEADERS
     include/ui/TurnBanner.h
     include/ui/NavigationProgressBar.h
     include/ui/PolylineHighlight.h
+    include/DebugFrame.h
 )
 
 # --- Render core library (shared by exe & tests) ---

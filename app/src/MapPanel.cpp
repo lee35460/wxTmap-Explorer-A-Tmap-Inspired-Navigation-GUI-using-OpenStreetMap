@@ -14,23 +14,26 @@
 static const int ID_TOGGLE_ANIM = wxID_HIGHEST + 100; // custom event id
 
 namespace {
-    wxStaticText* s_demoLabel = nullptr;   // shows last action text
-    wxGauge*      s_progress  = nullptr;   // simple banner/progress demo
-    wxTimer*      s_timer     = nullptr;   // drives the progress animation
+    // wxWidgets 컴포넌트들은 부모 창에서 자동 삭제되므로 raw pointer 사용
+    // 하지만 명시적 null 체크로 안전성 확보
+    wxStaticText* s_demoLabel = nullptr;   // 상태 표시용 레이블
+    wxGauge*      s_progress  = nullptr;   // 간단한 배너/진행률 데모
+    wxTimer*      s_timer     = nullptr;   // 진행률 애니메이션 구동
     int           s_progVal   = 0;
-    std::chrono::steady_clock::time_point s_lastTick; // for jank metric
-    int           s_expectedMs = 100;                  // 10Hz default
+    std::chrono::steady_clock::time_point s_lastTick; // 지연 측정용
+    int           s_expectedMs = 100;                  // 10Hz 기본값
 }
 
-// JSON serialization for LonLat (ADL-enabled)
+// JSON 변환 헬퍼
 inline void to_json(nlohmann::json& j, const LonLat& p) {
     j = nlohmann::json{{"lon", p.lon}, {"lat", p.lat}};
 }
 
+// MapPanel 구현
 MapPanel::MapPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
     // WebView 초기화 코드 (생략)
-    hud_ = new ui::MapOverlayHud(this);
-    dpiScale_ = GetContentScaleFactor();
+    hud_ = std::make_unique<ui::MapOverlayHud>(this); // HUD 오버레이 초기화 - unique_ptr로 메모리 안전성 보장
+    dpiScale_ = GetContentScaleFactor(); // 초기 DPI 스케일 설정
 
     // --- Minimal visual HUD/Banner demo so we can SEE activity ---
     if (!s_demoLabel) {
@@ -79,7 +82,11 @@ MapPanel::MapPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
         });
 
         Bind(wxEVT_DESTROY, [this](wxWindowDestroyEvent&){
-            if (s_timer && s_timer->IsRunning()) s_timer->Stop();
+            // 명시적 타이머 정리로 메모리 안전성 확보
+            if (s_timer && s_timer->IsRunning()) {
+                s_timer->Stop();
+            }
+            // wxWidgets는 자동으로 child 컴포넌트들을 삭제하므로 추가 삭제 불필요
         });
     }
 
