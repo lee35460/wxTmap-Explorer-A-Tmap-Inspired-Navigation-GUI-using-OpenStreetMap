@@ -91,7 +91,11 @@ private:
     wxDECLARE_EVENT_TABLE();
 };
 
-// API 테스트용 개별 패널들
+// ========================================
+// 2단계: API Test 패널들 (학습용 Mock 구현)
+// ========================================
+
+// TmapClient API 테스트 패널 - POI 검색 Mock 구현
 class TmapApiTestPanel : public wxPanel {
 public:
     TmapApiTestPanel(wxWindow* parent, DebugFrame* debugFrame);
@@ -110,6 +114,7 @@ private:
     wxDECLARE_EVENT_TABLE();
 };
 
+// 경로 계획 알고리즘 테스트 패널 - 간단한 Mock 경로 생성
 class RoutePlannerTestPanel : public wxPanel {
 public:
     RoutePlannerTestPanel(wxWindow* parent, DebugFrame* debugFrame);
@@ -117,140 +122,43 @@ public:
     
 private:
     DebugFrame* debugFrame_;
-    wxChoice* plannerChoice_;
+    
+    // UI 컴포넌트들 (2단계 학습용으로 간소화)
+    wxChoice* plannerChoice_;        // "직선", "지그재그", "곡선" 선택
+    wxChoice* algorithmChoice_;      // 알고리즘 선택 (누락된 멤버 추가)
     wxTextCtrl* startLonInput_;
     wxTextCtrl* startLatInput_;
     wxTextCtrl* endLonInput_;
     wxTextCtrl* endLatInput_;
+    wxSpinCtrl* pointCountSpin_;     // 생성할 중간 점 개수
     wxButton* calculateBtn_;
     wxListCtrl* routePointsList_;
-    wxTextCtrl* metricsOutput_;
+    wxTextCtrl* algorithmOutput_;    // 알고리즘 설명 및 결과
+    wxTextCtrl* routeOutput_;        // 경로 결과 출력 (누락된 멤버 추가)
     
-    // 경로 데이터 (unique_ptr로 관리)
+    // 경로 데이터 (unique_ptr로 안전한 관리)
     std::unique_ptr<std::vector<LonLat>> calculatedRoute_;
     
+    // 이벤트 핸들러들
     void OnCalculateRoute(wxCommandEvent& event);
     void OnPlannerChanged(wxCommandEvent& event);
+    void OnPlanRoute(wxCommandEvent& event);      // 누락된 메서드 추가
+    void OnClearRoute(wxCommandEvent& event);
+    
+    // 헬퍼 메서드들 (학습용 Mock 알고리즘)
+    void CreateUI();
+    void UpdateRouteDisplay();
+    std::vector<LonLat> GenerateDirectRoute(const LonLat& start, const LonLat& end, int points);
+    std::vector<LonLat> GenerateZigzagRoute(const LonLat& start, const LonLat& end, int points);
+    std::vector<LonLat> GenerateCurvedRoute(const LonLat& start, const LonLat& end, int points);
     
     wxDECLARE_EVENT_TABLE();
 };
 
-// WXT-4: 렌더링 성능 테스트 패널
-class RenderPipelineTestPanel : public wxPanel {
-public:
-    RenderPipelineTestPanel(wxWindow* parent, DebugFrame* debugFrame);
-    virtual ~RenderPipelineTestPanel();
-    
-private:
-    DebugFrame* debugFrame_;
-    wxButton* startRenderBtn_;
-    wxButton* submitPolylineBtn_;
-    wxSlider* pointCountSlider_;
-    wxGauge* fpsGauge_;
-    wxTextCtrl* metricsOutput_;
-    
-    // 타이머 (unique_ptr로 안전한 관리)
-    std::unique_ptr<wxTimer> updateTimer_;
-    
-    // 렌더링 파이프라인 (unique_ptr로 관리)
-    std::unique_ptr<RenderPipeline> renderPipeline_;
-    
-    void OnStartRender(wxCommandEvent& event);
-    void OnSubmitPolyline(wxCommandEvent& event);
-    void OnUpdateMetrics(wxTimerEvent& event);
-    void OnPointCountChanged(wxCommandEvent& event);
-    
-    wxDECLARE_EVENT_TABLE();
-};
-
-// WXT-55: HUD 컴포넌트 테스트 패널
-class HudComponentTestPanel : public wxPanel {
-public:
-    HudComponentTestPanel(wxWindow* parent, DebugFrame* debugFrame);
-    virtual ~HudComponentTestPanel() = default;
-    
-private:
-    DebugFrame* debugFrame_;
-    wxSlider* speedSlider_;
-    wxSlider* speedLimitSlider_;
-    wxTextCtrl* distanceInput_;
-    wxChoice* themeChoice_;
-    wxCheckBox* visibleCheckbox_;
-    wxPanel* hudPreview_;
-    
-    // HUD 상태 데이터 (unique_ptr로 관리)
-    struct HudTestData;
-    std::unique_ptr<HudTestData> hudData_;
-    
-    void OnSpeedChanged(wxCommandEvent& event);
-    void OnThemeChanged(wxCommandEvent& event);
-    void OnVisibilityChanged(wxCommandEvent& event);
-    void UpdateHudPreview();
-    
-    wxDECLARE_EVENT_TABLE();
-};
-
-// WXT-56: Turn Banner 및 Progress Bar 테스트 패널
-class TurnBannerTestPanel : public wxPanel {
-public:
-    TurnBannerTestPanel(wxWindow* parent, DebugFrame* debugFrame);
-    virtual ~TurnBannerTestPanel();
-    
-private:
-    DebugFrame* debugFrame_;
-    wxChoice* turnDirectionChoice_;
-    wxTextCtrl* distanceInput_;
-    wxSlider* progressSlider_;
-    wxButton* startAnimBtn_;
-    wxButton* stopAnimBtn_;
-    wxPanel* bannerPreview_;
-    wxGauge* progressBar_;
-    
-    // 애니메이션 타이머 (unique_ptr로 안전한 관리)
-    std::unique_ptr<wxTimer> animationTimer_;
-    
-    // Turn Banner 데이터
-    struct TurnBannerData;
-    std::unique_ptr<TurnBannerData> bannerData_;
-    
-    void OnTurnDirectionChanged(wxCommandEvent& event);
-    void OnProgressChanged(wxCommandEvent& event);
-    void OnStartAnimation(wxCommandEvent& event);
-    void OnStopAnimation(wxCommandEvent& event);
-    void OnAnimationTimer(wxTimerEvent& event);
-    void UpdateBannerPreview();
-    
-    wxDECLARE_EVENT_TABLE();
-};
-
-// WXT-57: Polyline Highlight 테스트 패널  
-class PolylineHighlightTestPanel : public wxPanel {
-public:
-    PolylineHighlightTestPanel(wxWindow* parent, DebugFrame* debugFrame);
-    virtual ~PolylineHighlightTestPanel() = default;
-    
-private:
-    DebugFrame* debugFrame_;
-    wxButton* generateRouteBtn_;
-    wxSlider* progressSlider_;
-    wxChoice* highlightStyleChoice_;
-    wxColourPickerCtrl* completedColorPicker_;
-    wxColourPickerCtrl* remainingColorPicker_;
-    wxSpinCtrl* lineWidthSpin_;
-    wxPanel* polylinePreview_;
-    
-    // 경로 및 스타일 데이터 (unique_ptr로 관리)
-    struct PolylineData;
-    std::unique_ptr<PolylineData> polylineData_;
-    
-    void OnGenerateRoute(wxCommandEvent& event);
-    void OnProgressChanged(wxCommandEvent& event);
-    void OnStyleChanged(wxCommandEvent& event);
-    void OnColorChanged(wxColourPickerEvent& event);
-    void UpdatePolylinePreview();
-    
-    wxDECLARE_EVENT_TABLE();
-};
+// ========================================
+// 3단계: Render Test 관련 (나중에 구현)
+// ========================================
+// (3단계에서 구현 예정)
 
 // 이벤트 ID들
 enum {
@@ -260,34 +168,15 @@ enum {
     ID_CALC_DISTANCE = 1003,
     ID_ADD_SAMPLE = 1004,
     
-    // API Test IDs (2000번대)
+    // API Test IDs (2000번대) - 2단계 학습용
     ID_SEARCH_POI = 2001,
     ID_CLEAR_RESULTS = 2002,
     ID_CALCULATE_ROUTE = 2003,
     ID_PLANNER_CHOICE = 2004,
+    ID_PLAN_ROUTE = 2005,      // 누락된 ID 추가
+    ID_CLEAR_ROUTE = 2006,
+    ID_POINT_COUNT_SPIN = 2007,
     
-    // Render Test IDs (3000번대)  
-    ID_START_RENDER = 3001,
-    ID_SUBMIT_POLYLINE = 3002,
-    ID_UPDATE_TIMER = 3003,
-    ID_POINT_COUNT_SLIDER = 3004,
-    
-    // HUD Test IDs (4000번대)
-    ID_SPEED_SLIDER = 4001,
-    ID_THEME_CHOICE = 4002,
-    ID_VISIBILITY_CHECKBOX = 4003,
-    
-    // Turn Banner Test IDs (5000번대)
-    ID_TURN_DIRECTION_CHOICE = 5001,
-    ID_PROGRESS_SLIDER = 5002,
-    ID_START_ANIM = 5003,
-    ID_STOP_ANIM = 5004,
-    ID_ANIM_TIMER = 5005,
-    
-    // Polyline Highlight Test IDs (6000번대)
-    ID_GENERATE_ROUTE = 6001,
-    ID_HIGHLIGHT_PROGRESS = 6002,
-    ID_HIGHLIGHT_STYLE = 6003,
-    ID_COMPLETED_COLOR = 6004,
-    ID_REMAINING_COLOR = 6005
+    // Render Test IDs (3000번대) - 3단계에서 구현 예정
+    // (나중에 추가)
 };

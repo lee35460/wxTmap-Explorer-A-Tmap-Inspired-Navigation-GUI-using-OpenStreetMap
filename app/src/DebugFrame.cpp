@@ -395,15 +395,31 @@ void DebugFrame::CreateDataTestPanel() {
 void DebugFrame::CreateApiTestPanel() {
     apiTestPanel_ = new wxPanel(notebook_);
     
-    auto* sizer = new wxBoxSizer(wxVERTICAL);
-    auto* label = new wxStaticText(apiTestPanel_, wxID_ANY, 
-                                  "🔍 2단계: API Test Panel\n(TmapClient, 경로 탐색 등)\n\n"
-                                  "1단계 완료 후 구현 예정");
-    label->SetFont(wxFont(14, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    label->SetForegroundColour(wxColour(100, 100, 100));
-    sizer->Add(label, 0, wxALL, 20);
+    // ========================================
+    // 🔄 변경점: 단순한 레이블에서 → 실제 기능적인 두 개의 서브패널로 분할
+    // - 상단: TmapApiTestPanel (POI 검색 Mock)  
+    // - 하단: RoutePlannerTestPanel (경로 생성 알고리즘)
+    // ========================================
     
+    // 수직 분할을 위한 스플리터 생성
+    auto* apiSplitter = new wxSplitterWindow(apiTestPanel_);
+    
+    // 상단: TmapClient API 테스트 (POI 검색 Mock)
+    auto* tmapApiPanel = new TmapApiTestPanel(apiSplitter, this);
+    
+    // 하단: 경로 계획 알고리즘 테스트 (학습용 Mock 알고리즘들)
+    auto* routePlannerPanel = new RoutePlannerTestPanel(apiSplitter, this);
+    
+    // 스플리터 설정 (50:50 비율로 분할)
+    apiSplitter->SplitHorizontally(tmapApiPanel, routePlannerPanel);
+    apiSplitter->SetSashGravity(0.5);  // 상하 균등 분할
+    apiSplitter->SetMinimumPaneSize(200);  // 최소 200px 확보
+    
+    // 레이아웃 설정
+    auto* sizer = new wxBoxSizer(wxVERTICAL);
+    sizer->Add(apiSplitter, 1, wxEXPAND);  // 전체 공간 사용
     apiTestPanel_->SetSizer(sizer);
+    
     notebook_->AddPage(apiTestPanel_, "🔍 2단계: API Test");
 }
 
@@ -430,4 +446,407 @@ void DebugFrame::AppendLog(const wxString& message) {
                                                message);
         logOutput_->AppendText(timestamped);
     }
+}
+
+// ========================================
+// 🆕 추가: 2단계 API Test 패널 구현들
+// ========================================
+
+// TmapApiTestPanel 구현 - POI 검색 Mock
+wxBEGIN_EVENT_TABLE(TmapApiTestPanel, wxPanel)
+    EVT_BUTTON(ID_SEARCH_POI, TmapApiTestPanel::OnSearchPoi)
+    EVT_BUTTON(ID_CLEAR_RESULTS, TmapApiTestPanel::OnClearResults)
+wxEND_EVENT_TABLE()
+
+TmapApiTestPanel::TmapApiTestPanel(wxWindow* parent, DebugFrame* debugFrame)
+    : wxPanel(parent), debugFrame_(debugFrame) {
+    
+    auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+    
+    // 제목
+    auto* title = new wxStaticText(this, wxID_ANY, "🔍 2단계-A: Tmap API 테스트 (Mock)");
+    title->SetFont(wxFont(14, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
+    title->SetForegroundColour(wxColour(200, 100, 0));
+    mainSizer->Add(title, 0, wxALL, 10);
+    
+    // 설명
+    auto* desc = new wxStaticText(this, wxID_ANY, 
+        "🎯 POI 검색 API 동작 방식을 Mock 데이터로 학습합니다");
+    desc->SetForegroundColour(wxColour(80, 80, 80));
+    mainSizer->Add(desc, 0, wxALL | wxEXPAND, 10);
+    
+    // 검색 입력부
+    auto* searchBox = new wxStaticBoxSizer(wxHORIZONTAL, this, "POI 검색 (Mock API)");
+    
+    searchBox->Add(new wxStaticText(this, wxID_ANY, "검색어:"), 0, 
+                   wxALIGN_CENTER_VERTICAL | wxALL, 5);
+    searchInput_ = new wxTextCtrl(this, wxID_ANY, "강남역", wxDefaultPosition, wxSize(200, -1));
+    searchInput_->SetToolTip("검색할 장소명 입력 (Mock: 강남역, 부산역, 대구역 등)");
+    searchBox->Add(searchInput_, 1, wxALL, 5);
+    
+    searchBtn_ = new wxButton(this, ID_SEARCH_POI, "🔍 검색 실행");
+    searchBtn_->SetToolTip("Mock API로 POI 검색 시뮬레이션");
+    searchBox->Add(searchBtn_, 0, wxALL, 5);
+    
+    auto* clearBtn = new wxButton(this, ID_CLEAR_RESULTS, "🗑️ 결과 초기화");
+    searchBox->Add(clearBtn, 0, wxALL, 5);
+    
+    mainSizer->Add(searchBox, 0, wxEXPAND | wxALL, 10);
+    
+    // 검색 결과 리스트
+    auto* resultBox = new wxStaticBoxSizer(wxVERTICAL, this, "검색 결과");
+    resultList_ = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(-1, 120),
+                                wxLC_REPORT | wxLC_SINGLE_SEL);
+    resultList_->AppendColumn("이름", wxLIST_FORMAT_LEFT, 120);
+    resultList_->AppendColumn("주소", wxLIST_FORMAT_LEFT, 180);
+    resultList_->AppendColumn("경도", wxLIST_FORMAT_LEFT, 100);
+    resultList_->AppendColumn("위도", wxLIST_FORMAT_LEFT, 100);
+    
+    resultBox->Add(resultList_, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(resultBox, 1, wxEXPAND | wxALL, 10);
+    
+    // Raw API 응답 (학습용)
+    auto* responseBox = new wxStaticBoxSizer(wxVERTICAL, this, "Mock API 응답 JSON");
+    rawResponseOutput_ = new wxTextCtrl(this, wxID_ANY, "", 
+                                       wxDefaultPosition, wxSize(-1, 80),
+                                       wxTE_MULTILINE | wxTE_READONLY);
+    rawResponseOutput_->SetBackgroundColour(wxColour(40, 40, 40));
+    rawResponseOutput_->SetForegroundColour(wxColour(200, 255, 200));
+    rawResponseOutput_->SetFont(wxFont(9, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+    
+    responseBox->Add(rawResponseOutput_, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(responseBox, 0, wxEXPAND | wxALL, 10);
+    
+    SetSizer(mainSizer);
+    
+    // 초기 메시지
+    debugFrame_->AppendLog("🔍 TmapApiTestPanel 초기화 완료 - Mock API 준비됨");
+}
+
+void TmapApiTestPanel::OnSearchPoi(wxCommandEvent& event) {
+    wxString query = searchInput_->GetValue().Trim();
+    
+    if (query.IsEmpty()) {
+        debugFrame_->AppendLog("❌ 검색어를 입력하세요");
+        return;
+    }
+    
+    debugFrame_->AppendLog(wxString::Format("🔍 POI 검색 시작: '%s' (Mock API 호출)", query));
+    
+    // ========================================
+    // 🎯 학습 포인트: Mock API 응답 생성
+    // 실제로는 HTTP 요청 → JSON 응답이지만, 
+    // 학습용으로 로컬에서 시뮬레이션
+    // ========================================
+    
+    // Mock 데이터베이스 (한국 주요 장소)
+    std::vector<std::tuple<std::string, std::string, double, double>> mockDB = {
+        {"강남역", "서울특별시 강남구 강남대로 396", 127.0276, 37.4979},
+        {"부산역", "부산광역시 동구 중앙대로 206", 129.0756, 35.1795},
+        {"대구역", "대구광역시 동구 동대구로 550", 128.5911, 35.8714},
+        {"대전역", "대전광역시 동구 중앙로 215", 127.3845, 36.3504},
+        {"광주역", "광주광역시 동구 경양로 264", 126.8895, 35.1595},
+        {"인천공항", "인천광역시 중구 공항로 272", 126.4406, 37.4691},
+        {"서울역", "서울특별시 중구 한강대로 405", 126.9700, 37.5547}
+    };
+    
+    // 검색어와 매칭되는 결과 찾기 (부분 문자열 매칭)
+    std::vector<std::tuple<std::string, std::string, double, double>> results;
+    for (const auto& [name, address, lon, lat] : mockDB) {
+        if (name.find(query.ToStdString()) != std::string::npos) {
+            results.push_back({name, address, lon, lat});
+        }
+    }
+    
+    // 결과가 없으면 첫 번째 항목을 기본값으로 (학습용)
+    if (results.empty()) {
+        results.push_back(mockDB[0]);  // 강남역을 기본값으로
+        debugFrame_->AppendLog("⚠️ 검색 결과 없음 - 기본값(강남역) 반환");
+    }
+    
+    // 검색 결과를 리스트에 표시
+    resultList_->DeleteAllItems();
+    for (size_t i = 0; i < results.size(); ++i) {
+        const auto& [name, address, lon, lat] = results[i];
+        
+        long index = resultList_->InsertItem(i, name);
+        resultList_->SetItem(index, 1, address);
+        resultList_->SetItem(index, 2, wxString::Format("%.6f", lon));
+        resultList_->SetItem(index, 3, wxString::Format("%.6f", lat));
+    }
+    
+    // Mock API 응답 JSON 생성 (실제 Tmap API 형식과 유사하게)
+    std::ostringstream json;
+    json << "{\n";
+    json << "  \"searchPoiInfo\": {\n";
+    json << "    \"totalCount\": \"" << results.size() << "\",\n";
+    json << "    \"count\": \"" << results.size() << "\",\n";
+    json << "    \"page\": \"1\",\n";
+    json << "    \"pois\": {\n";
+    json << "      \"poi\": [\n";
+    
+    for (size_t i = 0; i < results.size(); ++i) {
+        const auto& [name, address, lon, lat] = results[i];
+        json << "        {\n";
+        json << "          \"name\": \"" << name << "\",\n";
+        json << "          \"fullAddress\": \"" << address << "\",\n";
+        json << "          \"frontLat\": \"" << std::fixed << std::setprecision(6) << lat << "\",\n";
+        json << "          \"frontLon\": \"" << std::fixed << std::setprecision(6) << lon << "\"\n";
+        json << "        }";
+        if (i < results.size() - 1) json << ",";
+        json << "\n";
+    }
+    
+    json << "      ]\n";
+    json << "    }\n";
+    json << "  }\n";
+    json << "}";
+    
+    rawResponseOutput_->SetValue(json.str());
+    
+    debugFrame_->AppendLog(wxString::Format("✅ POI 검색 완료: %zu개 결과 (Mock)", results.size()));
+}
+
+void TmapApiTestPanel::OnClearResults(wxCommandEvent& event) {
+    resultList_->DeleteAllItems();
+    rawResponseOutput_->Clear();
+    debugFrame_->AppendLog("🗑️ 검색 결과 초기화됨");
+}
+
+// ========================================
+// 🆕 추가: 경로 계획 패널 구현
+// ========================================
+
+// RoutePlannerTestPanel 구현 - 다양한 경로 알고리즘 Mock
+wxBEGIN_EVENT_TABLE(RoutePlannerTestPanel, wxPanel)
+    EVT_BUTTON(ID_PLAN_ROUTE, RoutePlannerTestPanel::OnPlanRoute)
+    EVT_BUTTON(ID_CLEAR_ROUTE, RoutePlannerTestPanel::OnClearRoute)
+wxEND_EVENT_TABLE()
+
+RoutePlannerTestPanel::RoutePlannerTestPanel(wxWindow* parent, DebugFrame* debugFrame)
+    : wxPanel(parent), debugFrame_(debugFrame) {
+    
+    auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+    
+    // 제목
+    auto* title = new wxStaticText(this, wxID_ANY, "🗺️ 2단계-B: 경로 계획 테스트 (Mock)");
+    title->SetFont(wxFont(14, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
+    title->SetForegroundColour(wxColour(0, 150, 200));
+    mainSizer->Add(title, 0, wxALL, 10);
+    
+    // 설명
+    auto* desc = new wxStaticText(this, wxID_ANY, 
+        "🎯 다양한 경로 계획 알고리즘을 Mock 데이터로 학습합니다");
+    desc->SetForegroundColour(wxColour(80, 80, 80));
+    mainSizer->Add(desc, 0, wxALL | wxEXPAND, 10);
+    
+    // 경로 설정부
+    auto* routeBox = new wxStaticBoxSizer(wxVERTICAL, this, "경로 설정");
+    
+    // 출발지/목적지 입력
+    auto* coordSizer = new wxFlexGridSizer(2, 4, 5, 10);
+    coordSizer->AddGrowableCol(1, 1);
+    coordSizer->AddGrowableCol(3, 1);
+    
+    coordSizer->Add(new wxStaticText(this, wxID_ANY, "출발지 경도:"), 0, wxALIGN_CENTER_VERTICAL);
+    startLonInput_ = new wxTextCtrl(this, wxID_ANY, "127.0276");  // 강남역
+    coordSizer->Add(startLonInput_, 1, wxEXPAND);
+    
+    coordSizer->Add(new wxStaticText(this, wxID_ANY, "출발지 위도:"), 0, wxALIGN_CENTER_VERTICAL);
+    startLatInput_ = new wxTextCtrl(this, wxID_ANY, "37.4979");
+    coordSizer->Add(startLatInput_, 1, wxEXPAND);
+    
+    coordSizer->Add(new wxStaticText(this, wxID_ANY, "목적지 경도:"), 0, wxALIGN_CENTER_VERTICAL);
+    endLonInput_ = new wxTextCtrl(this, wxID_ANY, "126.9700");    // 서울역
+    coordSizer->Add(endLonInput_, 1, wxEXPAND);
+    
+    coordSizer->Add(new wxStaticText(this, wxID_ANY, "목적지 위도:"), 0, wxALIGN_CENTER_VERTICAL);
+    endLatInput_ = new wxTextCtrl(this, wxID_ANY, "37.5547");
+    coordSizer->Add(endLatInput_, 1, wxEXPAND);
+    
+    routeBox->Add(coordSizer, 0, wxEXPAND | wxALL, 5);
+    
+    // 알고리즘 선택
+    auto* algoSizer = new wxBoxSizer(wxHORIZONTAL);
+    algoSizer->Add(new wxStaticText(this, wxID_ANY, "경로 알고리즘:"), 0, 
+                   wxALIGN_CENTER_VERTICAL | wxRIGHT, 10);
+    
+    wxArrayString algorithms;
+    algorithms.Add("직선 경로 (Direct)");
+    algorithms.Add("지그재그 경로 (Zigzag)");
+    algorithms.Add("곡선 경로 (Curved)");
+    
+    algorithmChoice_ = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, algorithms);
+    algorithmChoice_->SetSelection(0);
+    algorithmChoice_->SetToolTip("학습용 Mock 알고리즘 선택");
+    algoSizer->Add(algorithmChoice_, 1, wxEXPAND);
+    
+    routeBox->Add(algoSizer, 0, wxEXPAND | wxALL, 5);
+    
+    // 버튼들
+    auto* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+    auto* planBtn = new wxButton(this, ID_PLAN_ROUTE, "🗺️ 경로 계획 실행");
+    planBtn->SetToolTip("Mock 알고리즘으로 경로 생성");
+    btnSizer->Add(planBtn, 0, wxRIGHT, 5);
+    
+    auto* clearBtn = new wxButton(this, ID_CLEAR_ROUTE, "🗑️ 경로 초기화");
+    btnSizer->Add(clearBtn, 0);
+    
+    routeBox->Add(btnSizer, 0, wxALL, 5);
+    mainSizer->Add(routeBox, 0, wxEXPAND | wxALL, 10);
+    
+    // 경로 결과 표시
+    auto* resultBox = new wxStaticBoxSizer(wxVERTICAL, this, "생성된 경로");
+    routeOutput_ = new wxTextCtrl(this, wxID_ANY, "", 
+                                 wxDefaultPosition, wxSize(-1, 120),
+                                 wxTE_MULTILINE | wxTE_READONLY);
+    routeOutput_->SetBackgroundColour(wxColour(40, 40, 50));
+    routeOutput_->SetForegroundColour(wxColour(200, 200, 255));
+    routeOutput_->SetFont(wxFont(9, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+    
+    resultBox->Add(routeOutput_, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(resultBox, 1, wxEXPAND | wxALL, 10);
+    
+    SetSizer(mainSizer);
+    
+    debugFrame_->AppendLog("🗺️ RoutePlannerTestPanel 초기화 완료 - Mock 알고리즘 준비됨");
+}
+
+void RoutePlannerTestPanel::OnPlanRoute(wxCommandEvent& event) {
+    // 입력값 검증
+    double startLon, startLat, endLon, endLat;
+    
+    if (!startLonInput_->GetValue().ToDouble(&startLon) ||
+        !startLatInput_->GetValue().ToDouble(&startLat) ||
+        !endLonInput_->GetValue().ToDouble(&endLon) ||
+        !endLatInput_->GetValue().ToDouble(&endLat)) {
+        debugFrame_->AppendLog("❌ 좌표 입력값이 올바르지 않습니다");
+        return;
+    }
+    
+    // 좌표 범위 검증 (한국 대략적 범위)
+    if (startLon < 124.0 || startLon > 132.0 || startLat < 33.0 || startLat > 39.0 ||
+        endLon < 124.0 || endLon > 132.0 || endLat < 33.0 || endLat > 39.0) {
+        debugFrame_->AppendLog("⚠️ 좌표가 한국 범위를 벗어남 - 계속 진행");
+    }
+    
+    LonLat start(startLon, startLat);
+    LonLat end(endLon, endLat);
+    
+    int algorithmIndex = algorithmChoice_->GetSelection();
+    wxString algorithmName = algorithmChoice_->GetStringSelection();
+    
+    debugFrame_->AppendLog(wxString::Format("🗺️ 경로 계획 시작: %s 알고리즘", algorithmName));
+    
+    // ========================================
+    // 🎯 학습 포인트: 다양한 경로 생성 알고리즘
+    // 실제로는 도로 네트워크, 교통정보 등을 고려하지만,
+    // 학습용으로 기하학적 패턴 생성
+    // ========================================
+    
+    std::vector<LonLat> waypoints;
+    std::ostringstream result;
+    
+    result << "=== 경로 계획 결과 ===\n";
+    result << "출발지: " << start.ToString() << "\n";
+    result << "목적지: " << end.ToString() << "\n";
+    result << "알고리즘: " << algorithmName.ToStdString() << "\n";
+    result << "직선 거리: " << std::fixed << std::setprecision(2) << start.DistanceTo(end) << " km\n\n";
+    
+    waypoints.push_back(start);  // 출발지
+    
+    switch (algorithmIndex) {
+        case 0: {  // 직선 경로
+            result << "📍 경로점들 (직선):\n";
+            // 중간 지점 몇 개 추가 (직선상의 점들)
+            for (int i = 1; i < 4; ++i) {
+                double ratio = i / 4.0;
+                double midLon = start.lon + (end.lon - start.lon) * ratio;  // longitude → lon으로 수정
+                double midLat = start.lat + (end.lat - start.lat) * ratio;  // latitude → lat으로 수정
+                LonLat waypoint(midLon, midLat);
+                waypoints.push_back(waypoint);
+                result << "  " << i << ". " << waypoint.ToString() << "\n";
+            }
+            break;
+        }
+        case 1: {  // 지그재그 경로
+            result << "📍 경로점들 (지그재그):\n";
+            // 지그재그 패턴 생성
+            for (int i = 1; i < 6; ++i) {
+                double ratio = i / 6.0;
+                double midLon = start.lon + (end.lon - start.lon) * ratio;
+                double midLat = start.lat + (end.lat - start.lat) * ratio;
+                
+                // 지그재그 오프셋 추가
+                double offset = (i % 2 == 1) ? 0.01 : -0.01;
+                midLon += offset;
+                
+                LonLat waypoint(midLon, midLat);
+                waypoints.push_back(waypoint);
+                result << "  " << i << ". " << waypoint.ToString() << " (오프셋: " << offset << ")\n";
+            }
+            break;
+        }
+        case 2: {  // 곡선 경로
+            result << "📍 경로점들 (곡선):\n";
+            // 베지어 곡선 근사
+            for (int i = 1; i < 8; ++i) {
+                double t = i / 8.0;
+                // 제어점 설정 (중간지점을 약간 위로)
+                double ctrlLon = (start.lon + end.lon) / 2.0;
+                double ctrlLat = (start.lat + end.lat) / 2.0 + 0.02;
+                
+                // 이차 베지어 곡선 공식
+                double midLon = (1-t)*(1-t)*start.lon + 2*(1-t)*t*ctrlLon + t*t*end.lon;
+                double midLat = (1-t)*(1-t)*start.lat + 2*(1-t)*t*ctrlLat + t*t*end.lat;
+                
+                LonLat waypoint(midLon, midLat);
+                waypoints.push_back(waypoint);
+                result << "  " << i << ". " << waypoint.ToString() << " (t=" << std::fixed << std::setprecision(2) << t << ")\n";
+            }
+            break;
+        }
+    }
+    
+    waypoints.push_back(end);  // 목적지
+    
+    // 총 경로 거리 계산
+    double totalDistance = 0.0;
+    for (size_t i = 1; i < waypoints.size(); ++i) {
+        totalDistance += waypoints[i-1].DistanceTo(waypoints[i]);
+    }
+    
+    result << "\n=== 경로 통계 ===\n";
+    result << "총 경로점 수: " << waypoints.size() << "\n";
+    result << "총 경로 거리: " << std::fixed << std::setprecision(2) << totalDistance << " km\n";
+    result << "직선 대비 비율: " << std::fixed << std::setprecision(1) << (totalDistance / start.DistanceTo(end) * 100.0) << "%\n";
+    
+    // JSON 형태 경로 데이터 (실제 내비게이션 앱에서 사용하는 형식)
+    result << "\n=== Mock 경로 JSON ===\n";
+    result << "{\n";
+    result << "  \"route\": {\n";
+    result << "    \"algorithm\": \"" << algorithmName.ToStdString() << "\",\n";
+    result << "    \"totalDistance\": " << totalDistance << ",\n";
+    result << "    \"waypoints\": [\n";
+    
+    for (size_t i = 0; i < waypoints.size(); ++i) {
+        result << "      {\"lon\": " << std::fixed << std::setprecision(6) << waypoints[i].lon 
+               << ", \"lat\": " << waypoints[i].lat << "}";
+        if (i < waypoints.size() - 1) result << ",";
+        result << "\n";
+    }
+    
+    result << "    ]\n";
+    result << "  }\n";
+    result << "}";
+    
+    routeOutput_->SetValue(result.str());
+    
+    debugFrame_->AppendLog(wxString::Format("✅ 경로 생성 완료: %zu개 경로점, %.2f km", 
+                                          waypoints.size(), totalDistance));
+}
+
+void RoutePlannerTestPanel::OnClearRoute(wxCommandEvent& event) {
+    routeOutput_->Clear();
+    debugFrame_->AppendLog("🗑️ 경로 데이터 초기화됨");
 }
