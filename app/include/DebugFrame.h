@@ -13,10 +13,11 @@
 #include <wx/spinctrl.h>
 #include <memory>
 #include <vector>
+#include "Types.h"  // 🆕 LonLat 정의를 위해 추가
 
 // Forward declarations
-struct LonLat;
 class RenderPipeline;
+class MapRenderPanel;  // 🆕 3단계용 forward declaration
 
 // 디버그용 메인 프레임 - Modern C++ unique_ptr 적용
 class DebugFrame : public wxFrame {
@@ -36,7 +37,7 @@ private:
     // 각 탭 패널들 (wxWidgets가 자동 관리)
     wxPanel* dataTestPanel_;
     wxPanel* apiTestPanel_;
-    wxPanel* renderTestPanel_;
+    wxPanel* renderTestPanel_;  // 3단계: MapRenderPanel을 wxPanel*로 관리
     
     // 비즈니스 로직 객체들 (unique_ptr로 안전한 메모리 관리) - 1단계용
     std::unique_ptr<std::vector<LonLat>> testCoordinates_;
@@ -156,9 +157,62 @@ private:
 };
 
 // ========================================
-// 3단계: Render Test 관련 (나중에 구현)
+// 🆕 3단계: 지도 렌더링 패널 (MapRenderPanel)
+// OpenStreetMap 타일을 사용한 실제 지도 렌더링
 // ========================================
-// (3단계에서 구현 예정)
+class MapRenderPanel : public wxPanel {
+public:
+    MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame);
+    
+private:
+    // 이벤트 핸들러
+    void OnPaint(wxPaintEvent& event);
+    void OnSize(wxSizeEvent& event);
+    void OnLeftDown(wxMouseEvent& event);
+    void OnLeftUp(wxMouseEvent& event);
+    void OnMouseMove(wxMouseEvent& event);
+    void OnMouseWheel(wxMouseEvent& event);
+    void OnZoomIn(wxCommandEvent& event);
+    void OnZoomOut(wxCommandEvent& event);
+    void OnResetView(wxCommandEvent& event);
+    void OnLoadTiles(wxCommandEvent& event);
+    void OnShowRoute(wxCommandEvent& event);
+    
+    // 좌표계 변환 함수들 (머케이터 투영법)
+    wxPoint LatLonToScreen(const LonLat& coord) const;
+    LonLat ScreenToLatLon(const wxPoint& point) const;
+    void UpdateTileList();
+    
+    // 렌더링 관련
+    void RenderMap(wxDC& dc);
+    void RenderRoute(wxDC& dc);
+    void RenderUI(wxDC& dc);
+    
+    // 지도 상태
+    LonLat centerCoord_;      // 지도 중심 좌표 (서울 기본값)
+    int zoomLevel_;           // 줌 레벨 (1-18)
+    wxSize panelSize_;        // 패널 크기
+    
+    // 인터렉션 상태
+    bool isDragging_;
+    wxPoint lastMousePos_;
+    
+    // 경로 데이터 (2단계에서 가져올 예정)
+    std::vector<LonLat> currentRoute_;
+    
+    // UI 컨트롤들
+    wxButton* zoomInBtn_;
+    wxButton* zoomOutBtn_;
+    wxButton* resetBtn_;
+    wxButton* loadTilesBtn_;
+    wxButton* showRouteBtn_;
+    wxStaticText* coordLabel_;
+    wxStaticText* zoomLabel_;
+    
+    DebugFrame* debugFrame_;
+    
+    wxDECLARE_EVENT_TABLE();
+};
 
 // 이벤트 ID들
 enum {
@@ -177,6 +231,11 @@ enum {
     ID_CLEAR_ROUTE = 2006,
     ID_POINT_COUNT_SPIN = 2007,
     
-    // Render Test IDs (3000번대) - 3단계에서 구현 예정
-    // (나중에 추가)
+    // Render Test IDs (3000번대) - 🆕 3단계: 지도 렌더링
+    ID_MAP_RENDER = 3001,
+    ID_ZOOM_IN = 3002,
+    ID_ZOOM_OUT = 3003,
+    ID_RESET_VIEW = 3004,
+    ID_LOAD_TILES = 3005,
+    ID_SHOW_ROUTE = 3006
 };

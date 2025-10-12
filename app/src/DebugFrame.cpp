@@ -424,18 +424,15 @@ void DebugFrame::CreateApiTestPanel() {
 }
 
 void DebugFrame::CreateRenderTestPanel() {
-    renderTestPanel_ = new wxPanel(notebook_);
+    // ========================================
+    // 🆕 3단계: 실제 지도 렌더링 패널 생성
+    // 기존 placeholder를 MapRenderPanel로 교체
+    // ========================================
     
-    auto* sizer = new wxBoxSizer(wxVERTICAL);
-    auto* label = new wxStaticText(renderTestPanel_, wxID_ANY, 
-                                  "🎨 3단계: Render Test Panel\n(RenderPipeline, HUD 등)\n\n"
-                                  "1-2단계 완료 후 구현 예정");
-    label->SetFont(wxFont(14, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-    label->SetForegroundColour(wxColour(100, 100, 100));
-    sizer->Add(label, 0, wxALL, 20);
+    renderTestPanel_ = new MapRenderPanel(notebook_, this);
+    notebook_->AddPage(renderTestPanel_, "🗺️ 3단계: Map Render");
     
-    renderTestPanel_->SetSizer(sizer);
-    notebook_->AddPage(renderTestPanel_, "🎨 3단계: Render Test");
+    AppendLog("🗺️ MapRenderPanel 생성 완료 - OpenStreetMap 타일 렌더링 준비");
 }
 
 void DebugFrame::AppendLog(const wxString& message) {
@@ -849,4 +846,456 @@ void RoutePlannerTestPanel::OnPlanRoute(wxCommandEvent& event) {
 void RoutePlannerTestPanel::OnClearRoute(wxCommandEvent& event) {
     routeOutput_->Clear();
     debugFrame_->AppendLog("🗑️ 경로 데이터 초기화됨");
+}
+
+// ========================================
+// 🆕 3단계: MapRenderPanel 구현
+// OpenStreetMap 타일 기반 실제 지도 렌더링
+// ========================================
+
+// 이벤트 테이블
+wxBEGIN_EVENT_TABLE(MapRenderPanel, wxPanel)
+    EVT_PAINT(MapRenderPanel::OnPaint)
+    EVT_SIZE(MapRenderPanel::OnSize)
+    EVT_LEFT_DOWN(MapRenderPanel::OnLeftDown)
+    EVT_LEFT_UP(MapRenderPanel::OnLeftUp)
+    EVT_MOTION(MapRenderPanel::OnMouseMove)
+    EVT_MOUSEWHEEL(MapRenderPanel::OnMouseWheel)
+    EVT_BUTTON(ID_ZOOM_IN, MapRenderPanel::OnZoomIn)
+    EVT_BUTTON(ID_ZOOM_OUT, MapRenderPanel::OnZoomOut)
+    EVT_BUTTON(ID_RESET_VIEW, MapRenderPanel::OnResetView)
+    EVT_BUTTON(ID_LOAD_TILES, MapRenderPanel::OnLoadTiles)
+    EVT_BUTTON(ID_SHOW_ROUTE, MapRenderPanel::OnShowRoute)
+wxEND_EVENT_TABLE()
+
+MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
+    : wxPanel(parent, wxID_ANY), debugFrame_(debugFrame),
+      centerCoord_(126.9780, 37.5665),  // 서울시청 기본값
+      zoomLevel_(10),
+      isDragging_(false) {
+    
+    // ========================================
+    // 🎯 학습 포인트: 실제 지도 애플리케이션 UI 구성
+    // - 지도 영역 + 컨트롤 패널의 분리 설계
+    // - 좌표계 변환의 실시간 처리
+    // ========================================
+    
+    auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+    
+    // 제목 및 설명
+    auto* titleBox = new wxBoxSizer(wxHORIZONTAL);
+    auto* title = new wxStaticText(this, wxID_ANY, "🗺️ 3단계: OpenStreetMap 렌더링");
+    title->SetFont(wxFont(16, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
+    title->SetForegroundColour(wxColour(0, 120, 200));
+    titleBox->Add(title, 0, wxALIGN_CENTER_VERTICAL);
+    
+    mainSizer->Add(titleBox, 0, wxALL | wxEXPAND, 10);
+    
+    // 컨트롤 패널 (상단)
+    auto* controlBox = new wxStaticBoxSizer(wxHORIZONTAL, this, "지도 컨트롤");
+    
+    // 줌 컨트롤
+    zoomInBtn_ = new wxButton(this, ID_ZOOM_IN, "🔍+");
+    zoomInBtn_->SetToolTip("확대 (Zoom In)");
+    controlBox->Add(zoomInBtn_, 0, wxRIGHT, 5);
+    
+    zoomOutBtn_ = new wxButton(this, ID_ZOOM_OUT, "🔍-");
+    zoomOutBtn_->SetToolTip("축소 (Zoom Out)");
+    controlBox->Add(zoomOutBtn_, 0, wxRIGHT, 10);
+    
+    // 뷰 리셋
+    resetBtn_ = new wxButton(this, ID_RESET_VIEW, "🏠 서울");
+    resetBtn_->SetToolTip("서울 중심으로 리셋");
+    controlBox->Add(resetBtn_, 0, wxRIGHT, 10);
+    
+    // 타일 로드 (학습용)
+    loadTilesBtn_ = new wxButton(this, ID_LOAD_TILES, "📥 타일 로드");
+    loadTilesBtn_->SetToolTip("OpenStreetMap 타일 다운로드 시뮬레이션");
+    controlBox->Add(loadTilesBtn_, 0, wxRIGHT, 10);
+    
+    // 경로 표시
+    showRouteBtn_ = new wxButton(this, ID_SHOW_ROUTE, "🛣️ 경로 표시");
+    showRouteBtn_->SetToolTip("2단계에서 생성한 경로를 지도에 표시");
+    controlBox->Add(showRouteBtn_, 0, wxRIGHT, 10);
+    
+    // 좌표 및 줌 정보 표시
+    coordLabel_ = new wxStaticText(this, wxID_ANY, 
+                                   wxString::Format("중심: %.4f, %.4f", centerCoord_.lon, centerCoord_.lat));
+    coordLabel_->SetFont(wxFont(9, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+    controlBox->Add(coordLabel_, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 10);
+    
+    zoomLabel_ = new wxStaticText(this, wxID_ANY, wxString::Format("줌: %d", zoomLevel_));
+    zoomLabel_->SetFont(wxFont(9, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+    controlBox->Add(zoomLabel_, 0, wxALIGN_CENTER_VERTICAL);
+    
+    mainSizer->Add(controlBox, 0, wxEXPAND | wxALL, 10);
+    
+    // 지도 렌더링 영역 (메인)
+    // 이 패널 자체가 지도 캔버스 역할을 함
+    auto* mapInfo = new wxStaticText(this, wxID_ANY, 
+        "💡 지도 영역: 마우스로 드래그하여 이동, 휠로 줌 조절\n"
+        "현재는 Mock 구현 - 실제로는 OSM 타일 이미지가 표시됩니다");
+    mapInfo->SetForegroundColour(wxColour(100, 100, 100));
+    mainSizer->Add(mapInfo, 0, wxALL, 10);
+    
+    SetSizer(mainSizer);
+    SetBackgroundColour(wxColour(240, 248, 255));  // 연한 파란색 배경
+    
+    // 초기 샘플 경로 데이터 (2단계 연동 준비)
+    currentRoute_ = {
+        LonLat(126.9780, 37.5665),  // 서울시청
+        LonLat(127.0276, 37.4979),  // 강남역
+        LonLat(126.9700, 37.5547)   // 서울역
+    };
+    
+    debugFrame_->AppendLog("🗺️ MapRenderPanel 초기화 완료");
+    debugFrame_->AppendLog(wxString::Format("📍 초기 중심 좌표: %.4f, %.4f (줌 %d)", 
+                                          centerCoord_.lon, centerCoord_.lat, zoomLevel_));
+}
+
+// ========================================
+// 🎯 핵심 학습: 지도 렌더링 및 인터랙션
+// ========================================
+
+void MapRenderPanel::OnPaint(wxPaintEvent& event) {
+    wxPaintDC dc(this);
+    RenderMap(dc);
+}
+
+void MapRenderPanel::OnSize(wxSizeEvent& event) {
+    panelSize_ = GetSize();
+    debugFrame_->AppendLog(wxString::Format("🖥️ 지도 패널 크기 변경: %dx%d", 
+                                          panelSize_.GetWidth(), panelSize_.GetHeight()));
+    Refresh();  // 화면 다시 그리기
+    event.Skip();
+}
+
+void MapRenderPanel::OnLeftDown(wxMouseEvent& event) {
+    isDragging_ = true;
+    lastMousePos_ = event.GetPosition();
+    CaptureMouse();  // 마우스 캡처로 드래그 추적
+    
+    // 클릭한 지점의 좌표 계산 (학습용)
+    LonLat clickedCoord = ScreenToLatLon(event.GetPosition());
+    debugFrame_->AppendLog(wxString::Format("🖱️ 지도 클릭: %.6f, %.6f", 
+                                          clickedCoord.lon, clickedCoord.lat));
+}
+
+void MapRenderPanel::OnLeftUp(wxMouseEvent& event) {
+    if (isDragging_) {
+        isDragging_ = false;
+        ReleaseMouse();
+        debugFrame_->AppendLog("🖱️ 지도 드래그 완료");
+    }
+}
+
+void MapRenderPanel::OnMouseMove(wxMouseEvent& event) {
+    if (isDragging_) {
+        // ========================================
+        // 🎯 학습 포인트: 지도 패닝 (이동) 알고리즘
+        // 마우스 이동량을 지리 좌표 이동량으로 변환
+        // ========================================
+        
+        wxPoint currentPos = event.GetPosition();
+        wxPoint delta = currentPos - lastMousePos_;
+        
+        // 픽셀 이동량을 경위도 이동량으로 변환 (간단한 선형 변환)
+        // 실제로는 머케이터 투영법 고려 필요
+        double lonDelta = -delta.x * 0.001 * (18 - zoomLevel_);  // 줌 레벨에 따라 민감도 조정
+        double latDelta = delta.y * 0.001 * (18 - zoomLevel_);
+        
+        centerCoord_.lon += lonDelta;
+        centerCoord_.lat += latDelta;
+        
+        // 좌표 범위 제한 (전 세계)
+        centerCoord_.lon = std::max(-180.0, std::min(180.0, centerCoord_.lon));
+        centerCoord_.lat = std::max(-85.0, std::min(85.0, centerCoord_.lat));
+        
+        lastMousePos_ = currentPos;
+        
+        // UI 업데이트
+        coordLabel_->SetLabel(wxString::Format("중심: %.4f, %.4f", centerCoord_.lon, centerCoord_.lat));
+        Refresh();  // 지도 다시 그리기
+    }
+}
+
+void MapRenderPanel::OnMouseWheel(wxMouseEvent& event) {
+    // ========================================
+    // 🎯 학습 포인트: 지도 줌 기능 구현
+    // 마우스 휠로 줌 레벨 조정
+    // ========================================
+    
+    int wheelRotation = event.GetWheelRotation();
+    int oldZoom = zoomLevel_;
+    
+    if (wheelRotation > 0 && zoomLevel_ < 18) {
+        zoomLevel_++;
+        debugFrame_->AppendLog(wxString::Format("🔍 줌 인: %d → %d", oldZoom, zoomLevel_));
+    } else if (wheelRotation < 0 && zoomLevel_ > 1) {
+        zoomLevel_--;
+        debugFrame_->AppendLog(wxString::Format("🔍 줌 아웃: %d → %d", oldZoom, zoomLevel_));
+    }
+    
+    zoomLabel_->SetLabel(wxString::Format("줌: %d", zoomLevel_));
+    Refresh();
+}
+
+void MapRenderPanel::OnZoomIn(wxCommandEvent& event) {
+    if (zoomLevel_ < 18) {
+        zoomLevel_++;
+        zoomLabel_->SetLabel(wxString::Format("줌: %d", zoomLevel_));
+        debugFrame_->AppendLog(wxString::Format("🔍+ 버튼 줌 인: %d", zoomLevel_));
+        Refresh();
+    }
+}
+
+void MapRenderPanel::OnZoomOut(wxCommandEvent& event) {
+    if (zoomLevel_ > 1) {
+        zoomLevel_--;
+        zoomLabel_->SetLabel(wxString::Format("줌: %d", zoomLevel_));
+        debugFrame_->AppendLog(wxString::Format("🔍- 버튼 줌 아웃: %d", zoomLevel_));
+        Refresh();
+    }
+}
+
+void MapRenderPanel::OnResetView(wxCommandEvent& event) {
+    centerCoord_ = LonLat(126.9780, 37.5665);  // 서울시청으로 리셋
+    zoomLevel_ = 10;
+    
+    coordLabel_->SetLabel(wxString::Format("중심: %.4f, %.4f", centerCoord_.lon, centerCoord_.lat));
+    zoomLabel_->SetLabel(wxString::Format("줌: %d", zoomLevel_));
+    
+    debugFrame_->AppendLog("🏠 지도 뷰 리셋: 서울시청 중심");
+    Refresh();
+}
+
+void MapRenderPanel::OnLoadTiles(wxCommandEvent& event) {
+    // ========================================
+    // 🎯 학습 포인트: 지도 타일 시스템 이해
+    // 실제로는 OSM 타일 서버에서 이미지 다운로드
+    // ========================================
+    
+    debugFrame_->AppendLog("📥 OpenStreetMap 타일 로드 시뮬레이션 시작...");
+    
+    // Mock: 필요한 타일 계산
+    int tilesPerSide = 1 << zoomLevel_;  // 2^zoomLevel
+    debugFrame_->AppendLog(wxString::Format("📊 줌 %d: %dx%d 총 타일", 
+                                          zoomLevel_, tilesPerSide, tilesPerSide));
+    
+    // Mock: 현재 뷰포트에 필요한 타일들 계산
+    UpdateTileList();
+    
+    debugFrame_->AppendLog("✅ 타일 로드 완료 (Mock)");
+}
+
+void MapRenderPanel::OnShowRoute(wxCommandEvent& event) {
+    debugFrame_->AppendLog("🛣️ 2단계 경로를 지도에 표시");
+    
+    if (currentRoute_.empty()) {
+        debugFrame_->AppendLog("⚠️ 표시할 경로가 없습니다");
+        return;
+    }
+    
+    debugFrame_->AppendLog(wxString::Format("📍 경로점 수: %zu개", currentRoute_.size()));
+    for (size_t i = 0; i < currentRoute_.size(); ++i) {
+        debugFrame_->AppendLog(wxString::Format("  %zu. %.6f, %.6f", 
+                                              i+1, currentRoute_[i].lon, currentRoute_[i].lat));
+    }
+    
+    Refresh();  // 지도 다시 그려서 경로 표시
+}
+
+// ========================================
+// 🎯 핵심 학습: 좌표계 변환 (머케이터 투영법)
+// ========================================
+
+wxPoint MapRenderPanel::LatLonToScreen(const LonLat& coord) const {
+    // ========================================
+    // 🎓 학습 포인트: 웹 머케이터 투영법 (EPSG:3857)
+    // 위경도를 화면 픽셀 좌표로 변환하는 핵심 알고리즘
+    // ========================================
+    
+    if (!panelSize_.IsFullySpecified()) {
+        return wxPoint(0, 0);
+    }
+    
+    // 1. 경도는 선형 변환 (-180~180 → 0~1)
+    double lonNormalized = (coord.lon + 180.0) / 360.0;
+    
+    // 2. 위도는 머케이터 투영법 적용
+    double latRad = coord.lat * M_PI / 180.0;
+    double latNormalized = (1.0 - std::log(std::tan(latRad) + 1.0/std::cos(latRad)) / M_PI) / 2.0;
+    
+    // 3. 줌 레벨 적용 (2^zoom 배율)
+    double scale = std::pow(2.0, zoomLevel_);
+    
+    // 4. 중심 좌표 기준으로 상대 위치 계산
+    double centerLonNormalized = (centerCoord_.lon + 180.0) / 360.0;
+    double centerLatRad = centerCoord_.lat * M_PI / 180.0;
+    double centerLatNormalized = (1.0 - std::log(std::tan(centerLatRad) + 1.0/std::cos(centerLatRad)) / M_PI) / 2.0;
+    
+    // 5. 화면 중심을 기준으로 픽셀 좌표 계산
+    int screenX = static_cast<int>(panelSize_.GetWidth() / 2 + 
+                                  (lonNormalized - centerLonNormalized) * scale * 256);
+    int screenY = static_cast<int>(panelSize_.GetHeight() / 2 + 
+                                  (latNormalized - centerLatNormalized) * scale * 256);
+    
+    return wxPoint(screenX, screenY);
+}
+
+LonLat MapRenderPanel::ScreenToLatLon(const wxPoint& point) const {
+    // ========================================
+    // 🎓 학습 포인트: 역 머케이터 투영법
+    // 화면 픽셀 좌표를 위경도로 변환
+    // ========================================
+    
+    if (!panelSize_.IsFullySpecified()) {
+        return centerCoord_;
+    }
+    
+    double scale = std::pow(2.0, zoomLevel_);
+    
+    // 1. 화면 중심 기준 상대 픽셀 좌표
+    double deltaX = (point.x - panelSize_.GetWidth() / 2.0) / (scale * 256.0);
+    double deltaY = (point.y - panelSize_.GetHeight() / 2.0) / (scale * 256.0);
+    
+    // 2. 중심 좌표의 정규화된 좌표
+    double centerLonNormalized = (centerCoord_.lon + 180.0) / 360.0;
+    double centerLatRad = centerCoord_.lat * M_PI / 180.0;
+    double centerLatNormalized = (1.0 - std::log(std::tan(centerLatRad) + 1.0/std::cos(centerLatRad)) / M_PI) / 2.0;
+    
+    // 3. 클릭 지점의 정규화된 좌표
+    double lonNormalized = centerLonNormalized + deltaX;
+    double latNormalized = centerLatNormalized + deltaY;
+    
+    // 4. 정규화된 좌표를 위경도로 변환
+    double lon = lonNormalized * 360.0 - 180.0;
+    double latRad = std::atan(std::sinh(M_PI * (1.0 - 2.0 * latNormalized)));
+    double lat = latRad * 180.0 / M_PI;
+    
+    return LonLat(lon, lat);
+}
+
+void MapRenderPanel::UpdateTileList() {
+    // ========================================
+    // 🎓 학습 포인트: 지도 타일 시스템 이해
+    // 현재 뷰포트에 필요한 타일들을 계산
+    // ========================================
+    
+    debugFrame_->AppendLog("🧮 필요한 지도 타일 계산 중...");
+    
+    // 화면 네 모서리의 좌표를 구해서 필요한 타일 범위 계산
+    LonLat topLeft = ScreenToLatLon(wxPoint(0, 0));
+    LonLat bottomRight = ScreenToLatLon(wxPoint(panelSize_.GetWidth(), panelSize_.GetHeight()));
+    
+    debugFrame_->AppendLog(wxString::Format("📐 뷰포트: (%.4f,%.4f) ~ (%.4f,%.4f)", 
+                                          topLeft.lon, topLeft.lat, 
+                                          bottomRight.lon, bottomRight.lat));
+    
+    // 타일 인덱스 계산 (OSM 타일 명명 규칙)
+    int tilesPerSide = 1 << zoomLevel_;
+    
+    int tileXMin = static_cast<int>((topLeft.lon + 180.0) / 360.0 * tilesPerSide);
+    int tileXMax = static_cast<int>((bottomRight.lon + 180.0) / 360.0 * tilesPerSide);
+    
+    debugFrame_->AppendLog(wxString::Format("🗂️ 필요 타일 X 범위: %d ~ %d", tileXMin, tileXMax));
+    debugFrame_->AppendLog("💡 실제 구현시 여기서 HTTP 요청으로 타일 다운로드");
+}
+
+void MapRenderPanel::RenderMap(wxDC& dc) {
+    // ========================================
+    // 🎓 학습 포인트: 지도 렌더링 파이프라인
+    // 1. 배경 → 2. 지도 타일 → 3. 경로 → 4. UI 오버레이
+    // ========================================
+    
+    wxSize size = GetSize();
+    
+    // 1. 배경 그리기 (바다색)
+    dc.SetBrush(wxBrush(wxColour(170, 211, 223)));  // 연한 파란색
+    dc.DrawRectangle(0, 0, size.GetWidth(), size.GetHeight());
+    
+    // 2. 지도 타일 영역 표시 (Mock)
+    dc.SetPen(wxPen(wxColour(100, 100, 100), 1, wxPENSTYLE_DOT));
+    dc.SetBrush(wxBrush(wxColour(245, 245, 220)));  // 베이지색 (육지)
+    
+    // 타일 격자 그리기 (학습용 시각화)
+    int gridSize = 50;
+    for (int x = 0; x < size.GetWidth(); x += gridSize) {
+        for (int y = 0; y < size.GetHeight(); y += gridSize) {
+            dc.DrawRectangle(x, y, gridSize, gridSize);
+        }
+    }
+    
+    // 3. 경로 렌더링
+    RenderRoute(dc);
+    
+    // 4. UI 오버레이
+    RenderUI(dc);
+}
+
+void MapRenderPanel::RenderRoute(wxDC& dc) {
+    if (currentRoute_.size() < 2) return;
+    
+    // ========================================
+    // 🎓 학습 포인트: 지도 위 경로 시각화
+    // 지리 좌표를 화면 좌표로 변환하여 선 그리기
+    // ========================================
+    
+    dc.SetPen(wxPen(wxColour(255, 0, 0), 3));  // 빨간색 굵은 선
+    
+    for (size_t i = 1; i < currentRoute_.size(); ++i) {
+        wxPoint startPoint = LatLonToScreen(currentRoute_[i-1]);
+        wxPoint endPoint = LatLonToScreen(currentRoute_[i]);
+        
+        // 화면 영역 내에 있는 경우만 그리기
+        wxSize screenSize = GetSize();
+        if (startPoint.x >= -50 && startPoint.x <= screenSize.GetWidth() + 50 &&
+            startPoint.y >= -50 && startPoint.y <= screenSize.GetHeight() + 50) {
+            dc.DrawLine(startPoint, endPoint);
+        }
+    }
+    
+    // 경로점 마커 그리기
+    dc.SetPen(wxPen(wxColour(0, 0, 0), 2));
+    dc.SetBrush(wxBrush(wxColour(255, 255, 0)));  // 노란색
+    
+    for (size_t i = 0; i < currentRoute_.size(); ++i) {
+        wxPoint point = LatLonToScreen(currentRoute_[i]);
+        dc.DrawCircle(point, 5);
+        
+        // 점 번호 표시
+        dc.SetTextForeground(wxColour(0, 0, 0));
+        dc.DrawText(wxString::Format("%zu", i+1), point.x + 8, point.y - 8);
+    }
+}
+
+void MapRenderPanel::RenderUI(wxDC& dc) {
+    // ========================================
+    // 🎓 학습 포인트: 지도 UI 오버레이
+    // 십자선, 스케일바, 좌표 정보 등
+    // ========================================
+    
+    wxSize size = GetSize();
+    
+    // 중심점 십자선 그리기
+    dc.SetPen(wxPen(wxColour(0, 0, 0), 1));
+    int centerX = size.GetWidth() / 2;
+    int centerY = size.GetHeight() / 2;
+    
+    dc.DrawLine(centerX - 10, centerY, centerX + 10, centerY);
+    dc.DrawLine(centerX, centerY - 10, centerX, centerY + 10);
+    
+    // 현재 중심 좌표 표시
+    dc.SetTextForeground(wxColour(0, 0, 0));
+    dc.SetTextBackground(wxColour(255, 255, 255));
+    wxString coordText = wxString::Format("중심: %.4f, %.4f", centerCoord_.lon, centerCoord_.lat);
+    dc.DrawText(coordText, 10, size.GetHeight() - 30);
+    
+    // 줌 레벨 표시
+    wxString zoomText = wxString::Format("줌: %d", zoomLevel_);
+    dc.DrawText(zoomText, 10, size.GetHeight() - 50);
+    
+    // Mock 타일 정보
+    dc.SetTextForeground(wxColour(100, 100, 100));
+    dc.DrawText("💡 Mock 지도 - 실제로는 OSM 타일 이미지", 10, 10);
 }
