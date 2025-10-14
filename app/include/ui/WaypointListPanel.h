@@ -8,6 +8,12 @@
 #include <map>  // 🔧 std::map 추가
 #include "Types.h"
 
+// 🎯 설계 원칙: Modern C++의 unique_ptr를 활용한 안전한 메모리 관리
+// wxWidgets 컴포넌트들은 부모에 의해 자동 관리되므로, 
+// 비즈니스 로직 객체들만 unique_ptr로 관리
+
+namespace ui {
+
 // 🔧 누락된 클래스들 Forward Declaration 또는 간단 정의
 class WaypointValidator {
 public:
@@ -20,10 +26,6 @@ public:
         return a.coordinates.DistanceTo(b.coordinates);
     }
 };
-
-// 🎯 설계 원칙: Modern C++의 unique_ptr를 활용한 안전한 메모리 관리
-// wxWidgets 컴포넌트들은 부모에 의해 자동 관리되므로, 
-// 비즈니스 로직 객체들만 unique_ptr로 관리
 
 /**
  * @brief 웨이포인트 목록을 관리하고 표시하는 패널
@@ -112,5 +114,7 @@ private:
     
     wxDECLARE_EVENT_TABLE();
 };
+
+} // namespace ui
 
 // 중복 정의 제거 - 위에서 이미 간단한 버전으로 정의됨

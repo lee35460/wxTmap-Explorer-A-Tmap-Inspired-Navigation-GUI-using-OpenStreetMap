@@ -14,8 +14,8 @@ protected:
     void SetUp() override {
         renderPipeline_ = std::make_unique<RenderPipeline>();
         defaultTheme_ = std::make_unique<ui::PolylineTheme>();
-        defaultTheme_->highlightColor = 0x00FF00;
-        defaultTheme_->normalColor = 0x0080FF;
+        defaultTheme_->doneColor = wxColour(0, 255, 0);      // 초록색
+        defaultTheme_->remainColor = wxColour(0, 128, 255);  // 파란색
         
         renderer_ = std::make_unique<ui::PolylineHighlightRenderer>(*renderPipeline_, *defaultTheme_);
         
@@ -49,11 +49,16 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, HighlightRenderingVerification) {
     
     // 분할된 세그먼트 검증
     auto [completed, remaining] = ui::SplitPolylineByProgress(testRoute_, progress);
+    bool segmentValid = !completed.empty() && !remaining.empty();
+    bool progressValid = (progress >= 0.0 && progress <= 1.0);
+    bool routeValid = (testRoute_.size() >= 2);
+    
     EXPECT_FALSE(completed.empty());
     EXPECT_FALSE(remaining.empty());
     
+    bool testPassed = segmentValid && progressValid && routeValid;
     std::cout << "test_output: PolylineHighlightRenderTest: 하이라이트 구간이 정상적으로 렌더링되는지(색상/두께/구간 일치): " 
-              << (completed.empty() ? "FAIL" : "PASS") << std::endl;
+              << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • PolylineHighlightUpdateTest: 진행 구간 하이라이트가 실시간으로 갱신되는지(진행 상황 반영)
@@ -81,17 +86,26 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, RealTimeProgressUpdateVerification) 
         }
     }
     
+    // 모든 진행률 단계가 올바르게 처리되었는지 검증
+    bool allStepsValid = true;
+    for (double progress : progressSteps) {
+        auto [comp, rem] = ui::SplitPolylineByProgress(testRoute_, progress);
+        if (progress == 0.0 && (!comp.empty() || rem.empty())) allStepsValid = false;
+        if (progress == 1.0 && (comp.empty() || !rem.empty())) allStepsValid = false;
+        if (progress > 0.0 && progress < 1.0 && (comp.empty() || rem.empty())) allStepsValid = false;
+    }
+    
     std::cout << "test_output: PolylineHighlightUpdateTest: 진행 구간 하이라이트가 실시간으로 갱신되는지(진행 상황 반영): " 
-              << "PASS" << std::endl;
+              << (allStepsValid ? "PASS" : "FAIL") << std::endl;
 }
 
 // • PolylineStyleSeparationTest: 스타일 변경이 기존 경로와 명확히 구분되는지
 TEST_F(WXT_57_PolylineHighlightTestFixture, StyleDistinctionVerification) {
     // 커스텀 테마 생성
     ui::PolylineTheme customTheme;
-    customTheme.highlightColor = 0xFF0000;  // 빨간색
-    customTheme.normalColor = 0x808080;     // 회색
-    customTheme.highlightThickness = 10.0f;
+    customTheme.doneColor = wxColour(255, 0, 0);    // 빨간색
+    customTheme.remainColor = wxColour(128, 128, 128); // 회색
+    customTheme.cap = wxCAP_PROJECTING;
     
     // 픽스처의 기본 테마로 렌더링
     renderer_->renderHighlightedPolyline(testRoute_, 0.5);
@@ -101,12 +115,17 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, StyleDistinctionVerification) {
     renderer_->renderHighlightedPolyline(testRoute_, 0.5);
     
     // 테마 구분 검증 (픽스처의 기본 테마와 커스텀 테마 비교)
-    EXPECT_NE(defaultTheme_->highlightColor, customTheme.highlightColor);
-    EXPECT_NE(defaultTheme_->normalColor, customTheme.normalColor);
-    EXPECT_NE(defaultTheme_->highlightThickness, customTheme.highlightThickness);
+    bool doneColorDifferent = (defaultTheme_->doneColor.GetRGB() != customTheme.doneColor.GetRGB());
+    bool remainColorDifferent = (defaultTheme_->remainColor.GetRGB() != customTheme.remainColor.GetRGB());
+    bool capDifferent = (defaultTheme_->cap != customTheme.cap);
     
+    EXPECT_NE(defaultTheme_->doneColor.GetRGB(), customTheme.doneColor.GetRGB());
+    EXPECT_NE(defaultTheme_->remainColor.GetRGB(), customTheme.remainColor.GetRGB());
+    EXPECT_NE(defaultTheme_->cap, customTheme.cap);
+    
+    bool testPassed = doneColorDifferent && remainColorDifferent && capDifferent;
     std::cout << "test_output: PolylineStyleSeparationTest: 스타일 변경이 기존 경로와 명확히 구분되는지: " 
-              << "PASS" << std::endl;
+              << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • PolylineHighlightPerformanceTest: 대용량 경로 데이터에서도 성능 저하 없는지(FPS 30 이상)
@@ -135,6 +154,7 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, LargeDatasetPerformanceVerification)
     double fps = 11000000.0 / duration.count(); // 11 renders in microseconds
     
     // 30 FPS 이상 검증
+    bool fpsGood = (fps >= 30.0);
     EXPECT_GE(fps, 30.0);
     
     // 0.5 진행률에서 다시 렌더링하여 메트릭 확인 (completed와 remaining 모두 존재)
@@ -144,11 +164,14 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, LargeDatasetPerformanceVerification)
     size_t lastSegmentCount = renderer_->getLastSegmentCount();
     
     // 메트릭이 제대로 기록되었는지 검증 (0보다 크거나 같아야 함)
+    bool metricsValid = (lastRenderTime >= 0.0 && lastSegmentCount > 0);
     EXPECT_GE(lastRenderTime, 0.0);
     EXPECT_GT(lastSegmentCount, 0);
     
+    bool testPassed = fpsGood && metricsValid;
     std::cout << "test_output: PolylineHighlightPerformanceTest: 대용량 경로 데이터에서도 성능 저하 없는지(FPS 30 이상): " 
-              << fps << " FPS, 렌더링 시간: " << lastRenderTime << "μs, 세그먼트: " << lastSegmentCount << std::endl;
+              << fps << " FPS, 렌더링 시간: " << lastRenderTime << "μs, 세그먼트: " << lastSegmentCount 
+              << " - " << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • PolylineHighlightLogicTest: 하이라이트 구간 계산 로직의 정확성(구간 인덱스, 거리 등)
@@ -199,6 +222,17 @@ TEST(WXT_57_PolylineHighlightLogicTest, HighlightCalculationAccuracyVerification
         }
     }
     
+    // 모든 테스트 케이스가 성공했는지 확인
+    bool allTestsPassed = true;
+    for (const auto& testCase : testCases) {
+        auto [completed, remaining] = ui::SplitPolylineByProgress(testRoute, testCase.progress);
+        if (completed.size() != testCase.expectedCompletedMinSize || 
+            remaining.size() != testCase.expectedRemainingMinSize) {
+            allTestsPassed = false;
+            break;
+        }
+    }
+    
     std::cout << "test_output: PolylineHighlightLogicTest: 하이라이트 구간 계산 로직의 정확성(구간 인덱스, 거리 등): " 
-              << "PASS" << std::endl;
+              << (allTestsPassed ? "PASS" : "FAIL") << std::endl;
 }

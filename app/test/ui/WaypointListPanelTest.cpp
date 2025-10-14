@@ -70,9 +70,9 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, WaypointListVisualDisplayVerificatio
     }
     
     // 실제 테스트 결과에 따른 출력
-    std::string result = (allValid && initialCount == 5) ? "PASS" : "FAIL";
+    bool testPassed = allValid && initialCount == 5;
     std::cout << "test_output: 경유지 추가/삭제/정렬 시 UI가 즉시 반영됨: " 
-              << result << " (" << initialCount << "개 웨이포인트 표시)" << std::endl;
+              << (testPassed ? "PASS" : "FAIL") << " (" << initialCount << "개 웨이포인트 표시)" << std::endl;
 }
 
 // • 경유지 추가/삭제가 정상 동작한다
@@ -110,10 +110,9 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, AddRemoveWaypointVerification) {
     
     // 실제 테스트 결과 검증
     bool testPassed = (testWaypoints_->size() == initialCount - 1); // 최종적으로 1개 삭제된 상태
-    std::string result = testPassed ? "PASS" : "FAIL";
     
     std::cout << "test_output: AddRemoveWaypointTest: 경유지 추가/삭제가 정상 동작한다: " 
-              << result << std::endl;
+              << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • 경유지 순서 변경(드래그&드롭 또는 버튼)이 가능하다  
@@ -141,11 +140,21 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, WaypointReorderingVerification) {
         testWaypoints_->insert(testWaypoints_->begin(), moved);
         
         // 이동 결과 검증
+        bool moveSuccessful = (testWaypoints_->front().name == moved.name);
         EXPECT_EQ(testWaypoints_->front().name, moved.name);
+        
+        // 모든 순서 변경 작업이 성공했는지 확인
+        bool allReorderingSuccess = ((*testWaypoints_)[0].name == third) && 
+                                   ((*testWaypoints_)[1].name == second) && 
+                                   ((*testWaypoints_)[2].name == first) && 
+                                   moveSuccessful;
+        
+        std::cout << "test_output: WaypointReorderingTest: 경유지 순서 변경(드래그&드롭 또는 버튼)이 가능하다: " 
+                  << (allReorderingSuccess ? "PASS" : "FAIL") << std::endl;
+    } else {
+        std::cout << "test_output: WaypointReorderingTest: 경유지 순서 변경(드래그&드롭 또는 버튼)이 가능하다: " 
+                  << "FAIL - 충분한 웨이포인트가 없음" << std::endl;
     }
-    
-    std::cout << "test_output: WaypointReorderingTest: 경유지 순서 변경(드래그&드롭 또는 버튼)이 가능하다: " 
-              << "PASS" << std::endl;
 }
 
 // • 리스트가 반응형으로 동작하며, HiDPI/접근성(키보드, 폰트 크기) 지원
@@ -196,10 +205,11 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, ResponsiveAndAccessibilityVerificati
     currentSelection = std::max(currentSelection - 1, 0); // 위 화살표  
     EXPECT_GE(currentSelection, 0);
     
-    std::cout << "test_output: ResponsiveAccessibilityTest: 리스트가 반응형으로 동작하며, HiDPI/접근성(키보드, 폰트 크기) 지원: " 
-              << adaptationRate << "% 적응률" << std::endl;
-    
+    bool testPassed = (adaptationRate >= 80.0);
     EXPECT_GE(adaptationRate, 80.0); // 80% 이상 적응률
+    
+    std::cout << "test_output: ResponsiveAccessibilityTest: 리스트가 반응형으로 동작하며, HiDPI/접근성(키보드, 폰트 크기) 지원: " 
+              << adaptationRate << "% 적응률 - " << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • 상태(State) 주입 및 외부 모의 데이터로 테스트 가능
@@ -239,11 +249,16 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, StateInjectionAndMockDataVerificatio
     // 기존 데이터 교체
     *testWaypoints_ = mockData;
     
+    bool sizeCorrect = (testWaypoints_->size() == 3);
+    bool nameCorrect = ((*testWaypoints_)[0].name == "Mock Point 1");
+    bool callbacksWorked = waypointChangeCallbackTriggered_ && waypointSelectCallbackTriggered_;
+    
     EXPECT_EQ(testWaypoints_->size(), 3);
     EXPECT_EQ((*testWaypoints_)[0].name, "Mock Point 1");
     
+    bool testPassed = sizeCorrect && nameCorrect && callbacksWorked;
     std::cout << "test_output: StateInjectionTest: 상태(State) 주입 및 외부 모의 데이터로 테스트 가능: " 
-              << "PASS" << std::endl;
+              << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • ctest: WaypointListPanelTest.AddRemoveReorder (Desc-WXT-58.md 명시)
@@ -269,11 +284,18 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, AddRemoveReorder) {
     // 3. 삭제 테스트 (중간 항목 삭제)
     if (testWaypoints_->size() >= 3) {
         testWaypoints_->erase(testWaypoints_->begin() + 1);
+        bool finalSizeCorrect = (testWaypoints_->size() == originalCount);
         EXPECT_EQ(testWaypoints_->size(), originalCount); // +1 -1 = 원래 크기
+        
+        bool testPassed = finalSizeCorrect && (testWaypoints_->front().name == lastName) && 
+                          (testWaypoints_->back().name == firstName);
+        
+        std::cout << "test_output: ctest: WaypointListPanelTest.AddRemoveReorder: " 
+                  << (testPassed ? "PASS" : "FAIL") << std::endl;
+    } else {
+        std::cout << "test_output: ctest: WaypointListPanelTest.AddRemoveReorder: " 
+                  << "FAIL - 충분한 웨이포인트가 없음" << std::endl;
     }
-    
-    std::cout << "test_output: ctest: WaypointListPanelTest.AddRemoveReorder: " 
-              << "PASS" << std::endl;
 }
 
 // • 접근성 테스트(키보드 내비, 폰트 크기 변경)
@@ -314,10 +336,11 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, AccessibilityComplianceVerification)
     
     double fontSupportRate = (double)successfulSizes / fontSizes.size() * 100.0;
     
-    std::cout << "test_output: 접근성 테스트(키보드 내비, 폰트 크기 변경): " 
-              << fontSupportRate << "% 폰트 지원률" << std::endl;
-    
+    bool testPassed = (fontSupportRate >= 90.0);
     EXPECT_GE(fontSupportRate, 90.0); // 90% 이상 폰트 크기 지원
+    
+    std::cout << "test_output: 접근성 테스트(키보드 내비, 폰트 크기 변경): " 
+              << fontSupportRate << "% 폰트 지원률 - " << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
 // • 첫 렌더링 2s 이내 (성능 요구사항)
@@ -349,17 +372,18 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, InitialRenderingPerformanceVerificat
     auto end = std::chrono::high_resolution_clock::now();
     double renderTime = std::chrono::duration<double>(end - start).count();
     
-    std::cout << "test_output: 첫 렌더링 2s 이내: " 
-              << renderTime << "초 (1000개 웨이포인트)" << std::endl;
-    
     // 2초 이내 렌더링 검증
+    bool performanceGood = (renderTime <= 2.0);
     EXPECT_LE(renderTime, 2.0);
+    
+    std::cout << "test_output: 첫 렌더링 2s 이내: " 
+              << renderTime << "초 (1000개 웨이포인트) - " << (performanceGood ? "PASS" : "FAIL") << std::endl;
 }
 
 // WaypointValidator 및 DistanceCalculator 유틸리티 테스트
 TEST_F(WXT_58_WaypointListPanelTestFixture, UtilityClassesVerification) {
     // WaypointValidator 테스트
-    WaypointValidator validator;
+    ui::WaypointValidator validator;
     
     // 유효한 웨이포인트
     Waypoint validWp({127.0, 37.0}, "Valid Point");
@@ -370,7 +394,7 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, UtilityClassesVerification) {
     EXPECT_FALSE(validator.IsValid(invalidWp));
     
     // DistanceCalculator 테스트
-    DistanceCalculator calculator;
+    ui::DistanceCalculator calculator;
     
     if (testWaypoints_->size() >= 2) {
         Waypoint wp1 = (*testWaypoints_)[0];
@@ -378,9 +402,15 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, UtilityClassesVerification) {
         
         double distance = calculator.Calculate(wp1, wp2);
         EXPECT_GT(distance, 0.0); // 거리는 양수여야 함
+        bool distanceValid = (distance > 0.0 && distance < 1000000.0);
+        EXPECT_GT(distance, 0.0);
         EXPECT_LT(distance, 1000000.0); // 현실적인 거리 범위 (1000km 미만)
+        
+        bool testPassed = validator.IsValid(validWp) && !validator.IsValid(invalidWp) && distanceValid;
+        std::cout << "test_output: UtilityClassesTest: WaypointValidator 및 DistanceCalculator 검증: " 
+                  << (testPassed ? "PASS" : "FAIL") << std::endl;
+    } else {
+        std::cout << "test_output: UtilityClassesTest: WaypointValidator 및 DistanceCalculator 검증: " 
+                  << "FAIL - 충분한 웨이포인트가 없음" << std::endl;
     }
-    
-    std::cout << "test_output: UtilityClassesTest: WaypointValidator 및 DistanceCalculator 검증: " 
-              << "PASS" << std::endl;
 }
