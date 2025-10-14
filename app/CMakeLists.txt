@@ -63,6 +63,8 @@ set(SOURCES
     src/ui/NavigationProgressBar.cpp
     src/ui/PolylineHighlight.cpp
     src/ui/WaypointListPanel.cpp
+    src/ui/LocationPuck.cpp
+    src/ui/CameraController.cpp
     src/DebugFrame.cpp
 )
 
@@ -84,6 +86,8 @@ set(HEADERS
     include/ui/NavigationProgressBar.h
     include/ui/PolylineHighlight.h
     include/ui/WaypointListPanel.h
+    include/ui/LocationPuck.h
+    include/ui/CameraController.h
     include/DebugFrame.h
 )
 
@@ -131,6 +135,8 @@ if (BUILD_TESTING)
   src/ui/NavigationProgressBar.cpp
   src/ui/PolylineHighlight.cpp
   src/ui/WaypointListPanel.cpp
+  src/ui/LocationPuck.cpp
+  src/ui/CameraController.cpp
   )
   add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
   target_include_directories(unit_tests PRIVATE include)

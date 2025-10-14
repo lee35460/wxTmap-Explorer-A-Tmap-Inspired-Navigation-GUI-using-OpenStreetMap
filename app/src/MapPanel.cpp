@@ -11,6 +11,11 @@
 #include <iomanip>
 #include <algorithm>
 
+// UI 컴포넌트 구현체 include
+#include "ui/LocationPuck.h"
+#include "ui/PolylineHighlight.h" 
+#include "ui/CameraController.h"
+
 static const int ID_TOGGLE_ANIM = wxID_HIGHEST + 100; // custom event id
 
 namespace {
@@ -34,6 +39,13 @@ MapPanel::MapPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
     // WebView 초기화 코드 (생략)
     hud_ = new ui::MapOverlayHud(this); // HUD 오버레이 초기화 - wxWidgets 자동 관리
     dpiScale_ = GetContentScaleFactor(); // 초기 DPI 스케일 설정
+    
+    // 순수 비즈니스 로직 클래스들 초기화
+    locationPuck_ = std::make_unique<ui::LocationPuck>(this);
+    cameraController_ = std::make_unique<ui::CameraController>();
+    
+    // PolylineHighlightRenderer는 RenderPipeline이 필요하므로 나중에 초기화
+    // 일단 nullptr로 둡니다.
 
     // --- Minimal visual HUD/Banner demo so we can SEE activity ---
     if (!s_demoLabel) {

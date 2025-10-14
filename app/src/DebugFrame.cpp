@@ -9,6 +9,16 @@
 #include <cmath>             // M_PI, std::sin, std::cos 등 수학 함수
 #include <memory>            // unique_ptr 사용
 
+// UI 컴포넌트 include 추가
+#include "ui/MapOverlayHud.h"
+#include "ui/NavigationProgressBar.h"
+#include "ui/WaypointListPanel.h"
+#include "ui/TurnBanner.h"
+#include "ui/CameraController.h"
+#include "ui/LocationPuck.h"
+#include "ui/PolylineHighlight.h"
+#include "render/RenderPipeline.h"
+
 // 수학 상수 정의 (가독성 및 유지보수성 향상)
 constexpr double DEG_TO_RAD = M_PI / 180.0;
 
@@ -873,6 +883,7 @@ wxBEGIN_EVENT_TABLE(MapRenderPanel, wxPanel)
     EVT_BUTTON(ID_START_NAV_SIMULATION, MapRenderPanel::OnStartNavigation)
     EVT_BUTTON(ID_STOP_NAV_SIMULATION, MapRenderPanel::OnStopNavigation)
     EVT_TIMER(ID_UPDATE_TIMER, MapRenderPanel::OnUpdateTimer)
+    EVT_TIMER(ID_ANIMATION_TIMER, MapRenderPanel::OnAnimationTimer)
 wxEND_EVENT_TABLE()
 
 MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
@@ -885,6 +896,31 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
       currentProgress_(0.0),
       currentSpeed_(0.0),
       remainingDistance_(1200.0) {
+    
+    // 순수 비즈니스 로직 클래스들 초기화
+    cameraController_ = std::make_unique<ui::CameraController>();
+    locationPuck_ = std::make_unique<ui::LocationPuck>(this);
+    renderPipeline_ = std::make_unique<RenderPipeline>();
+    
+    // PolylineHighlightRenderer는 RenderPipeline과 테마가 필요
+    ui::PolylineTheme defaultTheme;
+    polylineHighlight_ = std::make_unique<ui::PolylineHighlightRenderer>(*renderPipeline_, defaultTheme);
+    
+    // ========================================
+    // 🎯 MapPanel.h 구현 가이드: UI 클래스 콜백 패턴
+    // ✅ CameraController::SetCameraMoveCallback() 활용
+    // ========================================
+    cameraController_->SetCameraMoveCallback([this](const LonLat& center, double bearing) {
+        centerCoord_ = center;
+        debugFrame_->AppendLog(wxString::Format("📍 UI 클래스 콜백: 카메라 이동 %.6f, %.6f (방향: %.1f°)", 
+                                               center.lon, center.lat, bearing));
+        Refresh(); // 지도 다시 그리기
+    });
+    
+    // ✅ CameraController 클래스 초기 설정 패턴
+    cameraController_->SetFollowMode(CameraFollowMode::Location);
+    cameraController_->SetFollowThreshold(10.0); // 10m 이상 이동시 follow
+    cameraController_->SetAnimationDuration(300); // 300ms 애니메이션
     
     // ========================================
     // 🎯 학습 포인트: 실제 지도 애플리케이션 UI 구성
@@ -967,7 +1003,7 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     // ========================================
     
     // HUD 오버레이 생성 (지도 위에 떠있는 정보 표시)
-    hudOverlay_ = std::make_unique<ui::MapOverlayHud>(this);
+    hudOverlay_ = new ui::MapOverlayHud(this);  // wxWidgets 자동 관리
     ui::HudState initialHudState;
     initialHudState.visible = true;
     initialHudState.speed_kmh = 0.0;
@@ -975,11 +1011,11 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     hudOverlay_->SetState(initialHudState);
     
     // 웨이포인트 패널을 별도 창이 아닌 하단에 추가 (구현 완성됨)
-    waypointPanel_ = std::make_unique<WaypointListPanel>(this);
+    waypointPanel_ = new ui::WaypointListPanel(this);  // wxWidgets 자동 관리
     waypointPanel_->SetMinSize(wxSize(-1, 150));  // 최소 높이 150px
     
     // 네비게이션 진행도 바
-    progressBar_ = std::make_unique<ui::NavigationProgressBar>(this);
+    progressBar_ = new ui::NavigationProgressBar(this);  // wxWidgets 자동 관리
     ui::NavigationProgress initialProgress;
     initialProgress.total_distance = 1000.0;
     initialProgress.remaining_distance = 1000.0;
@@ -1003,13 +1039,14 @@ MapRenderPanel::MapRenderPanel(wxWindow* parent, DebugFrame* debugFrame)
     progressGauge_->SetMinSize(wxSize(-1, 25));
     hudBox->Add(progressGauge_, 0, wxEXPAND | wxALL, 5);
     
-    // 타이머 초기화 (1초마다 업데이트)
-    updateTimer_ = new wxTimer(this, ID_UPDATE_TIMER);
+    // 타이머 초기화
+    updateTimer_ = new wxTimer(this, ID_UPDATE_TIMER);  // 네비게이션 업데이트용
+    animationTimer_ = new wxTimer(this, ID_ANIMATION_TIMER);  // 애니메이션 업데이트용 (60fps)
     
     // 기존 sizer에 새 UI 컴포넌트들 추가
     mainSizer->Add(hudBox, 0, wxEXPAND | wxALL, 10);
-    mainSizer->Add(progressBar_.get(), 0, wxEXPAND | wxALL, 5);
-    mainSizer->Add(waypointPanel_.get(), 0, wxEXPAND | wxALL, 10);  // 웨이포인트 패널 활성화
+    mainSizer->Add(progressBar_, 0, wxEXPAND | wxALL, 5);
+    mainSizer->Add(waypointPanel_, 0, wxEXPAND | wxALL, 10);  // 웨이포인트 패널 활성화
     
     SetSizer(mainSizer);
     SetBackgroundColour(wxColour(240, 248, 255));  // 연한 파란색 배경
@@ -1220,6 +1257,30 @@ void MapRenderPanel::OnShowRoute(wxCommandEvent& event) {
     debugFrame_->AppendLog("  - 진행도바: 30% 진행");
     debugFrame_->AppendLog("  - HUD 오버레이: 속도 45km/h, 남은 거리 850m");
     
+    // LocationPuck 초기 위치 설정 (경로 시작점)
+    if (!currentRoute_.empty() && locationPuck_) {
+        LonLat startPos = currentRoute_[0];
+        double bearing = 0.0;
+        bool hasBearing = false;
+        
+        // 시작점에서 다음 점으로의 방향 계산
+        if (currentRoute_.size() > 1) {
+            bearing = CalculateBearing(startPos, currentRoute_[1]);
+            hasBearing = true;
+        }
+        
+        LocationState initialState(startPos, 10.0, bearing, hasBearing, true); // 10m 정확도
+        locationPuck_->UpdateLocation(initialState);
+        
+        // CameraController에도 전달
+        if (cameraController_) {
+            cameraController_->UpdateLocation(initialState);
+        }
+        
+        debugFrame_->AppendLog(wxString::Format("📍 LocationPuck 초기 위치: %.6f, %.6f (방향: %.1f°)", 
+                                              startPos.lon, startPos.lat, bearing));
+    }
+    
     Refresh();  // 지도 다시 그려서 경로 표시
 }
 
@@ -1320,6 +1381,67 @@ void MapRenderPanel::UpdateTileList() {
     debugFrame_->AppendLog("💡 실제 구현시 여기서 HTTP 요청으로 타일 다운로드");
 }
 
+// ========================================
+// 🎯 MapPanel.h 구현 가이드: 지리 계산 유틸리티 함수
+// 📌 실제 MapPanel 구현 시 Types.h로 이동하여 전역 함수로 사용 권장
+// ========================================
+double MapRenderPanel::CalculateBearing(const LonLat& from, const LonLat& to) const {
+    // ========================================
+    // 🎓 학습 포인트: 두 지점 간 방향(베어링) 계산
+    // 구면 삼각법을 사용한 진북 기준 각도 계산
+    // 📌 MapPanel.h에서는 Types.h의 전역 함수로 구현할 것
+    // ========================================
+    
+    double lat1 = from.lat * DEG_TO_RAD;
+    double lat2 = to.lat * DEG_TO_RAD;
+    double deltaLon = (to.lon - from.lon) * DEG_TO_RAD;
+    
+    double y = std::sin(deltaLon) * std::cos(lat2);
+    double x = std::cos(lat1) * std::sin(lat2) - std::sin(lat1) * std::cos(lat2) * std::cos(deltaLon);
+    
+    double bearing = std::atan2(y, x) * 180.0 / M_PI;
+    
+    // 0-360도 범위로 정규화
+    bearing = std::fmod(bearing + 360.0, 360.0);
+    
+    return bearing;
+}
+
+// ========================================
+// 🎯 MapPanel.h 구현 가이드: 경로 보간 함수
+// ❌ 이 방식보다는 ✅ LocationPuck::InterpolateLocation() 활용 권장
+// ========================================
+LonLat MapRenderPanel::CalculateRoutePosition(double progress) const {
+    // ========================================
+    // 🎯 MapPanel.h 구현 가이드: 경로 상 위치 계산
+    // 📌 실제 구현에서는 LocationPuck의 InterpolateLocation 메서드 활용
+    // 📌 이 함수는 데모용이며, 실제로는 UI 클래스에 위임할 것
+    // ========================================
+    
+    if (currentRoute_.empty()) return LonLat();
+    if (currentRoute_.size() == 1) return currentRoute_[0];
+    
+    // 진행률을 경로 인덱스로 변환
+    double routeProgress = progress * (currentRoute_.size() - 1);
+    size_t segmentIndex = static_cast<size_t>(routeProgress);
+    double segmentProgress = routeProgress - segmentIndex;
+    
+    // 마지막 점 처리
+    if (segmentIndex >= currentRoute_.size() - 1) {
+        return currentRoute_.back();
+    }
+    
+    // ✅ LocationPuck::InterpolateLocation() 방식과 유사한 선형 보간
+    const LonLat& from = currentRoute_[segmentIndex];
+    const LonLat& to = currentRoute_[segmentIndex + 1];
+    
+    LonLat result;
+    result.lon = from.lon + (to.lon - from.lon) * segmentProgress;
+    result.lat = from.lat + (to.lat - from.lat) * segmentProgress;
+    
+    return result;
+}
+
 void MapRenderPanel::RenderMap(wxDC& dc) {
     // ========================================
     // 🎓 학습 포인트: 지도 렌더링 파이프라인
@@ -1346,6 +1468,18 @@ void MapRenderPanel::RenderMap(wxDC& dc) {
     
     // 3. 경로 렌더링 (4단계 개선)
     RenderRouteAdvanced(dc);
+    
+    // ========================================
+    // 🎯 MapPanel.h 구현 가이드: UI 클래스 렌더링 패턴
+    // ✅ LocationPuck 클래스의 Render() 메서드 활용
+    // ========================================
+    if (locationPuck_ && locationPuck_->IsVisible()) {
+        // 좌표 변환 함수를 람다로 전달 (의존성 주입 패턴)
+        std::function<wxPoint(const LonLat&)> coordToPixel = [this](const LonLat& coord) -> wxPoint {
+            return LatLonToScreen(coord);
+        };
+        locationPuck_->Render(dc, coordToPixel); // ✅ UI 클래스 메서드 호출
+    }
     
     // 4. 기본 UI 오버레이
     RenderUI(dc);
@@ -1520,11 +1654,12 @@ void MapRenderPanel::OnStartNavigation(wxCommandEvent& event) {
     startNavBtn_->Enable(false);
     stopNavBtn_->Enable(true);
     
-    // 타이머 시작 (1초마다)
-    updateTimer_->Start(1000);
+    // 타이머 시작
+    updateTimer_->Start(500);   // 네비게이션 업데이트: 500ms마다
+    animationTimer_->Start(16); // 애니메이션 업데이트: 60fps (16ms마다)
     
     debugFrame_->AppendLog("🚗 네비게이션 시뮬레이션 시작!");
-    debugFrame_->AppendLog("[실시간 UI] HUD, 진행도바, 웨이포인트가 1초마다 업데이트됩니다");
+    debugFrame_->AppendLog("[실시간 UI] 60fps 애니메이션으로 마커 움직임 시뮬레이션");
     
     UpdateHudDisplay();
 }
@@ -1534,6 +1669,7 @@ void MapRenderPanel::OnStopNavigation(wxCommandEvent& event) {
     
     isNavigating_ = false;
     updateTimer_->Stop();
+    animationTimer_->Stop();
     
     // UI 상태 리셋
     startNavBtn_->Enable(true);
@@ -1559,8 +1695,8 @@ void MapRenderPanel::OnUpdateTimer(wxTimerEvent& event) {
     // - UI 컴포넌트 동기화
     // ========================================
     
-    // 시뮬레이션: 진행도 증가 (매초 2~5% 진행)
-    double increment = 2.0 + (rand() % 4);  // 2-5% 랜덤
+    // 시뮬레이션: 진행도 증가 (500ms마다 1~2.5% 진행 = 초당 2~5%)
+    double increment = (1.0 + (rand() % 15) * 0.1);  // 1.0-2.5% 랜덤
     currentProgress_ += increment;
     
     if (currentProgress_ >= 100.0) {
@@ -1569,6 +1705,7 @@ void MapRenderPanel::OnUpdateTimer(wxTimerEvent& event) {
         // 자동 정지: 직접 정지 로직 실행 (이벤트 객체 없이)
         isNavigating_ = false;
         updateTimer_->Stop();
+        animationTimer_->Stop();
         startNavBtn_->Enable(true);
         stopNavBtn_->Enable(false);
         
@@ -1583,6 +1720,44 @@ void MapRenderPanel::OnUpdateTimer(wxTimerEvent& event) {
     
     // 시뮬레이션: 남은 거리 감소
     remainingDistance_ = 1200.0 * (100.0 - currentProgress_) / 100.0;
+    
+    // ========================================
+    // 🎯 MapPanel.h 구현 가이드: UI 클래스 활용 패턴
+    // ✅ LocationPuck::InterpolateLocation() 및 CameraController::UpdateLocation() 활용
+    // ❌ 직접 보간 로직 구현하지 말고 UI 클래스 메서드 사용
+    // ========================================
+    if (!currentRoute_.empty() && locationPuck_) {
+        // ✅ UI 클래스 활용: 경로 상 현재 위치 계산
+        LonLat currentPos = CalculateRoutePosition(currentProgress_ / 100.0);
+        
+        // ========================================
+        // 🎯 MapPanel.h 구현 가이드: 방향 계산 로직
+        // Types.h의 CalculateDistance() 함수 활용
+        // ========================================
+        double bearing = 0.0;
+        bool hasBearing = false;
+        
+        // 현재 위치에서 다음 위치로의 방향을 계산
+        double segmentProgress = currentProgress_ / 100.0 * (currentRoute_.size() - 1);
+        size_t currentSegment = static_cast<size_t>(segmentProgress);
+        
+        if (currentSegment < currentRoute_.size() - 1) {
+            bearing = CalculateBearing(currentRoute_[currentSegment], currentRoute_[currentSegment + 1]);
+            hasBearing = true;
+        }
+        
+        // ✅ LocationPuck 클래스 활용: LocationState 생성 및 위치 업데이트
+        LocationState currentState(currentPos, 5.0, bearing, hasBearing, true); // 5m 정확도
+        locationPuck_->UpdateLocation(currentState); // UI 클래스 메서드 호출
+        
+        // ✅ CameraController 클래스 활용: 카메라 follow 모드
+        if (cameraController_) {
+            cameraController_->UpdateLocation(currentState); // UI 클래스 메서드 호출
+        }
+        
+        debugFrame_->AppendLog(wxString::Format("📍 UI 클래스 활용 위치 업데이트: %.6f, %.6f (%.1f%% 진행)", 
+                                              currentPos.lon, currentPos.lat, currentProgress_));
+    }
     
     // UI 업데이트
     UpdateHudDisplay();
@@ -1647,4 +1822,21 @@ void MapRenderPanel::UpdateProgressBar() {
         progress.completion_ratio = currentProgress_ / 100.0;
         progressBar_->UpdateProgress(progress);
     }
+}
+
+void MapRenderPanel::OnAnimationTimer(wxTimerEvent& event) {
+    // ========================================
+    // 🎯 MapPanel.h 구현 가이드: 애니메이션 업데이트 패턴
+    // ✅ LocationPuck::UpdateAnimation() 메서드 활용
+    // 📌 60fps 고빈도 업데이트로 부드러운 애니메이션 구현
+    // ========================================
+    if (!isNavigating_) return;
+    
+    // ✅ UI 클래스 애니메이션 업데이트 (위치는 OnUpdateTimer에서 설정됨)
+    if (locationPuck_) {
+        locationPuck_->UpdateAnimation(); // UI 클래스 메서드 호출
+    }
+    
+    // 📌 MapPanel에서는 이 패턴을 그대로 활용할 것
+    Refresh(); // 지도 다시 그리기 (애니메이션만)
 }

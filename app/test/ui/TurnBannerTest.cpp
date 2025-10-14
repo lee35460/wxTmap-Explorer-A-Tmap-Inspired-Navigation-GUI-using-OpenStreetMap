@@ -50,12 +50,13 @@ TEST_F(WXT_56_NavigationTestFixture, TurnBannerRenderingPerformance) {
     double elapsed = std::chrono::duration<double>(end - start).count();
     double fps = frame_count / elapsed;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: TurnBannerTest: 회전 지시 배너 렌더링 성능 (60fps 이상): " 
-              << fps << std::endl;
-    
-    // GoogleTest 검증 (60fps 이상이면 통과)
+    // 60fps 이상 검증
+    bool fpsGood = (fps >= 60.0);
     EXPECT_GE(fps, 60.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: TurnBannerTest: 회전 지시 배너 렌더링 성능 (60fps 이상): " 
+              << fps << " FPS - " << (fpsGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_56_NavigationTestFixture, ProgressBarUpdatePerformance) {
@@ -80,12 +81,13 @@ TEST_F(WXT_56_NavigationTestFixture, ProgressBarUpdatePerformance) {
     double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
     double avg_update_time = elapsed_ms / 10.0;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: ProgressBarTest: 진행 바 업데이트 성능 (100ms 이하): " 
-              << avg_update_time << std::endl;
-    
-    // GoogleTest 검증 (100ms 이하면 통과)
+    // 100ms 이하 검증
+    bool updateGood = (avg_update_time <= 100.0);
     EXPECT_LE(avg_update_time, 100.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: ProgressBarTest: 진행 바 업데이트 성능 (100ms 이하): " 
+              << avg_update_time << "ms - " << (updateGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_56_NavigationTestFixture, TurnAnimationSmoothness) {
@@ -119,12 +121,13 @@ TEST_F(WXT_56_NavigationTestFixture, TurnAnimationSmoothness) {
     
     double drop_rate = (double)dropped_frames / total_frames * 100.0;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: TurnAnimationTest: 회전 애니메이션 부드러움 (프레임 드롭 5% 이하): " 
-              << drop_rate << std::endl;
-    
-    // GoogleTest 검증 (5% 이하면 통과)
+    // 5% 이하 검증
+    bool animationGood = (drop_rate <= 5.0);
     EXPECT_LE(drop_rate, 5.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: TurnAnimationTest: 회전 애니메이션 부드러움 (프레임 드롭 5% 이하): " 
+              << drop_rate << "% - " << (animationGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_56_NavigationTestFixture, ProgressCalculationAccuracy) {
@@ -135,12 +138,13 @@ TEST_F(WXT_56_NavigationTestFixture, ProgressCalculationAccuracy) {
     // 오차율 계산
     double error_rate = std::abs(expected_progress - calculated_progress) / expected_progress * 100.0;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: ProgressAccuracyTest: 진행도 계산 정확성 (오차 1% 이하): " 
-              << error_rate << std::endl;
-    
-    // GoogleTest 검증 (1% 이하면 통과)
+    // 1% 이하 검증
+    bool accuracyGood = (error_rate <= 1.0);
     EXPECT_LE(error_rate, 1.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: ProgressAccuracyTest: 진행도 계산 정확성 (오차 1% 이하): " 
+              << error_rate << "% - " << (accuracyGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_56_NavigationTestFixture, ResponsiveLayoutAdaptability) {
@@ -181,12 +185,13 @@ TEST_F(WXT_56_NavigationTestFixture, ResponsiveLayoutAdaptability) {
     
     double adaptation_rate = (double)successful_adaptations / resolutions.size() * 100.0;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: ResponsiveLayoutTest: 반응형 레이아웃 적응성 (다양한 해상도 대응): " 
-              << adaptation_rate << std::endl;
-    
-    // GoogleTest 검증 (100% 적응이면 통과)
+    // 100% 적응 검증
+    bool adaptationGood = (adaptation_rate == 100.0);
     EXPECT_EQ(adaptation_rate, 100.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: ResponsiveLayoutTest: 반응형 레이아웃 적응성 (다양한 해상도 대응): " 
+              << adaptation_rate << "% - " << (adaptationGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_56_NavigationTestFixture, MemoryUsageOptimization) {
@@ -202,10 +207,11 @@ TEST_F(WXT_56_NavigationTestFixture, MemoryUsageOptimization) {
     size_t estimated_memory = initial_memory + (bitmaps.size() * 100 * 100 * 4); // RGBA
     double memory_mb = estimated_memory / (1024.0 * 1024.0);
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: MemoryUsageTest: 메모리 사용량 최적화 (10MB 이하): " 
-              << memory_mb << std::endl;
-    
-    // GoogleTest 검증 (10MB 이하면 통과)
+    // 10MB 이하 검증
+    bool memoryGood = (memory_mb <= 10.0);
     EXPECT_LE(memory_mb, 10.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: MemoryUsageTest: 메모리 사용량 최적화 (10MB 이하): " 
+              << memory_mb << "MB - " << (memoryGood ? "PASS" : "FAIL") << std::endl;
 }

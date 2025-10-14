@@ -1,17 +1,10 @@
 #pragma once
 #include "render/RenderPipeline.h"
 #include "ui/PolylineStyler.h"
+#include "ui/MapOverlayTheme.h"
 #include <vector>
 
 namespace ui {
-
-// 폴리라인 하이라이트 테마 설정
-struct PolylineTheme {
-    int highlightColor = 0x00FF00;   // 하이라이트 색상 (녹색)
-    int normalColor = 0x0080FF;      // 일반 색상 (파란색)
-    float highlightThickness = 8.0f; // 하이라이트 두께
-    float normalThickness = 4.0f;    // 일반 두께
-};
 
 // 폴리라인 하이라이트 렌더러
 class PolylineHighlightRenderer {

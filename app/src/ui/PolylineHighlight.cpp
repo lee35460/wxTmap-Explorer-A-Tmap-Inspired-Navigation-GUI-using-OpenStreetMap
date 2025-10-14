@@ -16,12 +16,12 @@ void PolylineHighlightRenderer::renderHighlightedPolyline(const std::vector<LonL
     
     // 완료된 구간을 하이라이트 색상으로 렌더링
     if (!completed_segment.empty()) {
-        renderSegment(completed_segment, theme_.highlightColor);
+        renderSegment(completed_segment, theme_.doneColor.GetRGB());
     }
     
     // 남은 구간을 일반 색상으로 렌더링
     if (!remaining_segment.empty()) {
-        renderSegment(remaining_segment, theme_.normalColor);
+        renderSegment(remaining_segment, theme_.remainColor.GetRGB());
     }
     
     auto end_time = std::chrono::high_resolution_clock::now();

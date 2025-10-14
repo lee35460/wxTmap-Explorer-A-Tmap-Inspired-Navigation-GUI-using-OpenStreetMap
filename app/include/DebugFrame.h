@@ -15,15 +15,35 @@
 #include <vector>
 #include "Types.h"  // 🆕 LonLat 정의를 위해 추가
 
-// 🆕 4단계: UI 컴포넌트 헤더 추가 (단계적 적용)
-#include "ui/MapOverlayHud.h"
-#include "ui/NavigationProgressBar.h"
-#include "ui/WaypointListPanel.h"  // WaypointListPanel 활성화
+// 🆕 4단계: UI 컴포넌트 헤더 추가 (단계적 적용) - Forward declarations으로 변경
+// #include "ui/MapOverlayHud.h"
+// #include "ui/NavigationProgressBar.h" 
+// #include "ui/WaypointListPanel.h"  // WaypointListPanel 활성화
 // #include "ui/PolylineHighlight.h"  // 임시 주석 처리
 
 // Forward declarations
 class RenderPipeline;
 class MapRenderPanel;  // 🆕 3단계용 forward declaration
+
+// Forward declarations for UI and data structures
+namespace ui {
+    // wxWidgets 상속 UI 컴포넌트들
+    class MapOverlayHud;
+    class NavigationProgressBar;
+    class WaypointListPanel;
+    class TurnBanner;
+    
+    // 순수 비즈니스 로직 클래스들
+    class CameraController;
+    class LocationPuck;
+    class PolylineHighlightRenderer;
+    class UiDispatcher;
+    
+    // 데이터 구조체들
+    struct NavigationProgress;
+    struct HudState;
+}
+struct CoordinateStats;
 
 // 디버그용 메인 프레임 - Modern C++ unique_ptr 적용
 class DebugFrame : public wxFrame {
@@ -35,7 +55,7 @@ public:
     void AppendLog(const wxString& message);
     
 private:
-    // UI 컴포넌트들 (wxWidgets가 자동 관리)
+    // === wxWidgets 상속 UI 컴포넌트들 (화면 렌더링/사용자 입력 처리) ===
     wxNotebook* notebook_;
     wxTextCtrl* logOutput_;
     wxSplitterWindow* splitter_;
@@ -45,7 +65,7 @@ private:
     wxPanel* apiTestPanel_;
     wxPanel* renderTestPanel_;  // 3단계: MapRenderPanel을 wxPanel*로 관리
     
-    // 비즈니스 로직 객체들 (unique_ptr로 안전한 메모리 관리) - 1단계용
+    // === 순수 비즈니스 로직 클래스들 (wxWidgets 비의존적) ===
     std::unique_ptr<std::vector<LonLat>> testCoordinates_;
     
     void CreateUI();
@@ -56,9 +76,6 @@ private:
     wxDECLARE_EVENT_TABLE();
 };
 
-// Forward declaration for CoordinateStats
-struct CoordinateStats;
-
 // 데이터 테스트 패널 - unique_ptr로 데이터 안전성 확보
 class DataTestPanel : public wxPanel {
 public:
@@ -68,7 +85,7 @@ public:
 private:
     DebugFrame* debugFrame_;
     
-    // UI 컴포넌트들 (wxWidgets가 자동 관리)
+    // === wxWidgets 상속 UI 컴포넌트들 (화면 렌더링/사용자 입력 처리) ===
     wxTextCtrl* lonInput_;
     wxTextCtrl* latInput_;
     wxButton* addCoordBtn_;
@@ -79,7 +96,7 @@ private:
     wxStaticText* memoryStatus_;
     wxTextCtrl* statsOutput_;
     
-    // 데이터 저장소 (unique_ptr로 안전한 메모리 관리)
+    // === 순수 비즈니스 로직 클래스들 (wxWidgets 비의존적) ===
     std::unique_ptr<std::vector<LonLat>> coordinates_;
     std::unique_ptr<CoordinateStats> stats_;
     
@@ -110,6 +127,8 @@ public:
     
 private:
     DebugFrame* debugFrame_;
+    
+    // === wxWidgets 상속 UI 컴포넌트들 (화면 렌더링/사용자 입력 처리) ===
     wxTextCtrl* searchInput_;
     wxButton* searchBtn_;
     wxListCtrl* resultList_;
@@ -130,7 +149,7 @@ public:
 private:
     DebugFrame* debugFrame_;
     
-    // UI 컴포넌트들 (2단계 학습용으로 간소화)
+    // === wxWidgets 상속 UI 컴포넌트들 (화면 렌더링/사용자 입력 처리) ===
     wxChoice* plannerChoice_;        // "직선", "지그재그", "곡선" 선택
     wxChoice* algorithmChoice_;      // 알고리즘 선택 (누락된 멤버 추가)
     wxTextCtrl* startLonInput_;
@@ -143,7 +162,7 @@ private:
     wxTextCtrl* algorithmOutput_;    // 알고리즘 설명 및 결과
     wxTextCtrl* routeOutput_;        // 경로 결과 출력 (누락된 멤버 추가)
     
-    // 경로 데이터 (unique_ptr로 안전한 관리)
+    // === 순수 비즈니스 로직 클래스들 (wxWidgets 비의존적) ===
     std::unique_ptr<std::vector<LonLat>> calculatedRoute_;
     
     // 이벤트 핸들러들
@@ -188,6 +207,7 @@ private:
     void OnStartNavigation(wxCommandEvent& event);
     void OnStopNavigation(wxCommandEvent& event);
     void OnUpdateTimer(wxTimerEvent& event);
+    void OnAnimationTimer(wxTimerEvent& event); // 애니메이션 전용 타이머
     void UpdateHudDisplay();
     void UpdateProgressBar();
     
@@ -196,29 +216,17 @@ private:
     LonLat ScreenToLatLon(const wxPoint& point) const;
     void UpdateTileList();
     
+    // 🎯 MapPanel.h 구현 가이드: 지리 계산 함수들
+    double CalculateBearing(const LonLat& from, const LonLat& to) const; // Types.h로 이동 권장
+    LonLat CalculateRoutePosition(double progress) const; // LocationPuck::InterpolateLocation() 활용 권장
+    
     // 렌더링 관련
     void RenderMap(wxDC& dc);
     void RenderRoute(wxDC& dc);
     void RenderRouteAdvanced(wxDC& dc);  // 🆕 4단계: 향상된 경로 렌더링
     void RenderUI(wxDC& dc);
     
-    // 지도 상태
-    LonLat centerCoord_;      // 지도 중심 좌표 (서울 기본값)
-    int zoomLevel_;           // 줌 레벨 (1-18)
-    wxSize panelSize_;        // 패널 크기
-    
-    // 인터렉션 상태
-    bool isDragging_;
-    wxPoint lastMousePos_;
-    
-    // 경로 데이터 (2단계에서 가져올 예정)
-    std::vector<LonLat> currentRoute_;
-    
-    // 🆕 4단계: 실제 UI 컴포넌트들 (단계적 적용)
-    std::unique_ptr<ui::MapOverlayHud> hudOverlay_;
-    std::unique_ptr<ui::NavigationProgressBar> progressBar_;
-    std::unique_ptr<WaypointListPanel> waypointPanel_;  // WaypointListPanel 활성화
-    
+    // === wxWidgets 상속 UI 컴포넌트들 (화면 렌더링/사용자 입력 처리) ===
     // 기본 UI 컨트롤들
     wxButton* zoomInBtn_;
     wxButton* zoomOutBtn_;
@@ -230,11 +238,36 @@ private:
     wxButton* startNavBtn_;
     wxButton* stopNavBtn_;
     wxTimer* updateTimer_;
+    wxTimer* animationTimer_;  // LocationPuck 애니메이션 전용 타이머
     wxStaticText* hudStatusLabel_;
     wxGauge* progressGauge_;
-    
     wxStaticText* coordLabel_;
     wxStaticText* zoomLabel_;
+    
+    // === wxWidgets 상속 UI 컴포넌트들 (화면 렌더링/사용자 입력 처리) ===
+    // 🆕 4단계: wxPanel 상속 UI 컴포넌트들 (단계적 적용)
+    ui::MapOverlayHud* hudOverlay_{nullptr};        // wxPanel 상속 - HUD 오버레이
+    ui::NavigationProgressBar* progressBar_{nullptr}; // wxPanel 상속 - 진행률 표시
+    ui::WaypointListPanel* waypointPanel_{nullptr};   // wxPanel 상속 - 경유지 리스트
+    ui::TurnBanner* turnBanner_{nullptr};            // wxPanel 상속 - 방향 안내 배너
+
+    // === 순수 비즈니스 로직 클래스들 (wxWidgets 비의존적) ===
+    std::unique_ptr<ui::CameraController> cameraController_;      // 카메라 follow 로직
+    std::unique_ptr<ui::LocationPuck> locationPuck_;             // 위치 마커 렌더링
+    std::unique_ptr<ui::PolylineHighlightRenderer> polylineHighlight_; // 경로 하이라이트
+    std::unique_ptr<RenderPipeline> renderPipeline_;             // 지도 타일 렌더링 파이프라인    
+    // === 데이터 멤버들 ===
+    // 지도 상태
+    LonLat centerCoord_;      // 지도 중심 좌표 (서울 기본값)
+    int zoomLevel_;           // 줌 레벨 (1-18)
+    wxSize panelSize_;        // 패널 크기
+    
+    // 인터렉션 상태
+    bool isDragging_;
+    wxPoint lastMousePos_;
+    
+    // 경로 데이터 (2단계에서 가져올 예정)
+    std::vector<LonLat> currentRoute_;
     
     // 시뮬레이션 상태
     bool isNavigating_;
@@ -275,5 +308,6 @@ enum {
     // 🆕 4단계: 실시간 UI 업데이트
     ID_START_NAV_SIMULATION = 3007,
     ID_STOP_NAV_SIMULATION = 3008,
-    ID_UPDATE_TIMER = 3009
+    ID_UPDATE_TIMER = 3009,
+    ID_ANIMATION_TIMER = 3010
 };

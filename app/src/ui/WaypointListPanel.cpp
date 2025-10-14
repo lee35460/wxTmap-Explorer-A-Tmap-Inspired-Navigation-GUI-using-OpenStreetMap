@@ -2,6 +2,8 @@
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
 
+namespace ui {
+
 enum {
     ID_ADD_WAYPOINT = 1001,
     ID_REMOVE_WAYPOINT,
@@ -11,12 +13,12 @@ enum {
 };
 
 // 이벤트 테이블 매핑
-wxBEGIN_EVENT_TABLE(WaypointListPanel, wxPanel)
-    EVT_BUTTON(ID_ADD_WAYPOINT, WaypointListPanel::OnAddWaypoint)
-    EVT_BUTTON(ID_REMOVE_WAYPOINT, WaypointListPanel::OnRemoveWaypoint)
-    EVT_LIST_ITEM_SELECTED(ID_LIST_CTRL, WaypointListPanel::OnListItemSelected)
-    EVT_LIST_ITEM_RIGHT_CLICK(ID_LIST_CTRL, WaypointListPanel::OnListItemRightClick)
-    EVT_CHAR_HOOK(WaypointListPanel::OnKeyDown)
+wxBEGIN_EVENT_TABLE(ui::WaypointListPanel, wxPanel)
+    EVT_BUTTON(ID_ADD_WAYPOINT, ui::WaypointListPanel::OnAddWaypoint)
+    EVT_BUTTON(ID_REMOVE_WAYPOINT, ui::WaypointListPanel::OnRemoveWaypoint)
+    EVT_LIST_ITEM_SELECTED(ID_LIST_CTRL, ui::WaypointListPanel::OnListItemSelected)
+    EVT_LIST_ITEM_RIGHT_CLICK(ID_LIST_CTRL, ui::WaypointListPanel::OnListItemRightClick)
+    EVT_CHAR_HOOK(ui::WaypointListPanel::OnKeyDown)
 wxEND_EVENT_TABLE()
 
 /**
@@ -193,3 +195,5 @@ void WaypointListPanel::UpdateListDisplay() {
         }
     }
 }
+
+} // namespace ui

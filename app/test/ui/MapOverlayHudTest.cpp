@@ -43,12 +43,13 @@ TEST_F(WXT_55_MapOverlayHudTestFixture, HudOverlayRenderingPerformance) {
     double elapsed = std::chrono::duration<double>(end - start).count();
     double fps = frame_count / elapsed;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: MapOverlayTest: HUD 오버레이 렌더링 정상 동작 (렌더링 FPS: 30fps 이상): " 
-              << fps << std::endl;
-    
-    // GoogleTest 검증 (30fps 이상이면 통과)
+    // 30fps 이상 검증
+    bool performanceGood = (fps >= 30.0);
     EXPECT_GE(fps, 30.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: MapOverlayTest: HUD 오버레이 렌더링 정상 동작 (렌더링 FPS: 30fps 이상): " 
+              << fps << " FPS - " << (performanceGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_55_MapOverlayHudTestFixture, SpeedAccuracyVerification) {
@@ -60,12 +61,13 @@ TEST_F(WXT_55_MapOverlayHudTestFixture, SpeedAccuracyVerification) {
     // 오차율 계산
     double error_rate = std::abs(actual_speed - displayed_speed) / actual_speed * 100.0;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: SpeedDisplayTest: 속도 표시 정확성 검증 (오차율: 5% 이하): " 
-              << error_rate << std::endl;
-    
-    // GoogleTest 검증 (5% 이하면 통과)
+    // 5% 이하 검증
+    bool accuracyGood = (error_rate <= 5.0);
     EXPECT_LE(error_rate, 5.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: SpeedDisplayTest: 속도 표시 정확성 검증 (오차율: 5% 이하): " 
+              << error_rate << "% - " << (accuracyGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_55_MapOverlayHudTestFixture, DistanceAndETAAccuracy) {
@@ -76,12 +78,13 @@ TEST_F(WXT_55_MapOverlayHudTestFixture, DistanceAndETAAccuracy) {
     // 계산 오차 계산
     double calculation_error = std::abs(expected_distance - calculated_distance) / expected_distance * 100.0;
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: DistanceCalculationTest: 거리 계산 및 ETA 정확성 (계산 오차: 1% 이하): " 
-              << calculation_error << std::endl;
-    
-    // GoogleTest 검증 (1% 이하면 통과)
+    // 1% 이하 검증
+    bool calculationGood = (calculation_error <= 1.0);
     EXPECT_LE(calculation_error, 1.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: DistanceCalculationTest: 거리 계산 및 ETA 정확성 (계산 오차: 1% 이하): " 
+              << calculation_error << "% - " << (calculationGood ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_55_MapOverlayHudTestFixture, TransparencyControlVerification) {
@@ -91,14 +94,13 @@ TEST_F(WXT_55_MapOverlayHudTestFixture, TransparencyControlVerification) {
     // 투명도 범위 검증
     bool in_range = (transparency >= 0.1 && transparency <= 1.0);
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: HudTransparencyTest: 투명도 조절 기능 검증 (투명도 범위: 0.1-1.0): " 
-              << transparency << std::endl;
-    
-    // GoogleTest 검증 (범위 내에 있으면 통과)
     EXPECT_TRUE(in_range);
     EXPECT_GE(transparency, 0.1);
     EXPECT_LE(transparency, 1.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: HudTransparencyTest: 투명도 조절 기능 검증 (투명도 범위: 0.1-1.0): " 
+              << transparency << " - " << (in_range ? "PASS" : "FAIL") << std::endl;
 }
 
 TEST_F(WXT_55_MapOverlayHudTestFixture, RealTimeDataUpdatePerformance) {
@@ -116,10 +118,11 @@ TEST_F(WXT_55_MapOverlayHudTestFixture, RealTimeDataUpdatePerformance) {
     auto end = std::chrono::steady_clock::now();
     double update_cycle = std::chrono::duration<double>(end - start).count() / 10.0; // 평균 업데이트 주기
     
-    // 결과 출력 (Desc 항목명과 완전히 일치)
-    std::cout << "test_output: RealTimeUpdateTest: 실시간 데이터 업데이트 성능 (업데이트 주기: 1초 이하): " 
-              << update_cycle << std::endl;
-    
-    // GoogleTest 검증 (1초 이하면 통과)
+    // 1초 이하 검증
+    bool updateGood = (update_cycle <= 1.0);
     EXPECT_LE(update_cycle, 1.0);
+    
+    // 결과 출력 (실제 테스트 결과 반영)
+    std::cout << "test_output: RealTimeUpdateTest: 실시간 데이터 업데이트 성능 (업데이트 주기: 1초 이하): " 
+              << update_cycle << "초 - " << (updateGood ? "PASS" : "FAIL") << std::endl;
 }
