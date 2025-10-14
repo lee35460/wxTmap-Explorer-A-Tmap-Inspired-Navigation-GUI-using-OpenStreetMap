@@ -10,7 +10,7 @@
 #include <vector>
 #include <memory>
 
-class WXT_59_TestFixture : public ::testing::Test {
+class WXT_59_LocationPuckTestFixture : public ::testing::Test {
 protected:
     void SetUp() override {
         // wxWidgets 앱 초기화 (테스트용)
@@ -41,7 +41,7 @@ protected:
 };
 
 // Desc-WXT-59.md TEST 항목과 동일한 함수명 사용
-TEST_F(WXT_59_TestFixture, LocationPuckRenderTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, LocationPuckRenderTest) {
     LonLat coords(127.0, 37.0);
     LocationState testLocation(coords, 15.0, 45.0, true, true); // isValid = true
     
@@ -63,7 +63,7 @@ TEST_F(WXT_59_TestFixture, LocationPuckRenderTest) {
               << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
-TEST_F(WXT_59_TestFixture, LocationPuckAnimationTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, LocationPuckAnimationTest) {
     LonLat startCoords(127.0, 37.0);
     LonLat endCoords(127.001, 37.001);
     LocationState startLocation(startCoords, 0.0, 0.0, false, true); // isValid = true
@@ -96,7 +96,7 @@ TEST_F(WXT_59_TestFixture, LocationPuckAnimationTest) {
 }
 
 // ctest 항목 처리 (Desc 파일의 "ctest: LocationPuckTest.FollowMode" 형태)
-TEST_F(WXT_59_TestFixture, LocationPuckTest_FollowMode) {
+TEST_F(WXT_59_LocationPuckTestFixture, LocationPuckTest_FollowMode) {
     bool cameraMoveCalled = false;
     LonLat targetCenter;
     
@@ -123,7 +123,7 @@ TEST_F(WXT_59_TestFixture, LocationPuckTest_FollowMode) {
               << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
-TEST_F(WXT_59_TestFixture, CameraFollowTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, CameraFollowTest) {
     int callCount = 0;
     cameraController_->SetCameraMoveCallback([&](const LonLat& center, double bearing) {
         callCount++;
@@ -150,7 +150,7 @@ TEST_F(WXT_59_TestFixture, CameraFollowTest) {
               << callCount << "회 호출: " << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
-TEST_F(WXT_59_TestFixture, LocationAccuracyTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, LocationAccuracyTest) {
     LonLat coords(127.0, 37.0);
     LocationState testLocation(coords, 25.0, 0.0, false, true); // 25m 정확도, isValid = true
     locationPuck_->UpdateLocation(testLocation);
@@ -164,7 +164,7 @@ TEST_F(WXT_59_TestFixture, LocationAccuracyTest) {
               << (accuracyCorrect ? "PASS" : "FAIL") << std::endl;
 }
 
-TEST_F(WXT_59_TestFixture, FollowToggleTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, FollowToggleTest) {
     // Follow 모드 토글 테스트
     bool initialOff = (cameraController_->GetFollowMode() == CameraFollowMode::Off);
     EXPECT_EQ(cameraController_->GetFollowMode(), CameraFollowMode::Off);
@@ -182,7 +182,7 @@ TEST_F(WXT_59_TestFixture, FollowToggleTest) {
               << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
 
-TEST_F(WXT_59_TestFixture, VisibilityTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, VisibilityTest) {
     // 가시성 토글 테스트
     bool initialVisible = locationPuck_->IsVisible();
     EXPECT_TRUE(initialVisible);
@@ -201,7 +201,7 @@ TEST_F(WXT_59_TestFixture, VisibilityTest) {
 }
 
 // 성능 테스트 (60fps 목표)
-TEST_F(WXT_59_TestFixture, PerformanceTest) {
+TEST_F(WXT_59_LocationPuckTestFixture, PerformanceTest) {
     auto start = std::chrono::high_resolution_clock::now();
     
     // 60회 위치 업데이트 (1초간 60fps 시뮬레이션)

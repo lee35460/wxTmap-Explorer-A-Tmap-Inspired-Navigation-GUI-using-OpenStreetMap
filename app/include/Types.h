@@ -129,18 +129,6 @@ struct CoordinateStats {
 
 // === WXT-59: Location Puck + Camera Follow 관련 구조체 ===
 
-// 사용자 위치 상태 정보 - coordinates, accuracy, bearing, hasBearing, isValid, timestamp 포함
-// struct LocationState {
-
-// 카메라 Follow 모드 enum - Off, Location, Bearing
-// enum class CameraFollowMode {
-
-// LocationPuck 테마 - puckColor, accuracyColor, arrowColor, puckRadius, arrowLength, strokeWidth
-// struct LocationPuckTheme {
-
-// 거리 계산 헬퍼 함수
-// inline double CalculateDistance(const LonLat& from, const LonLat& to) {
-
 struct LocationState {
     LonLat coordinates; // 현재 위치 좌표
     double accuracy{0.0}; // 위치 정확도 변경 (미터 단위)

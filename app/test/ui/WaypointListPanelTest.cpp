@@ -403,7 +403,6 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, UtilityClassesVerification) {
         double distance = calculator.Calculate(wp1, wp2);
         EXPECT_GT(distance, 0.0); // 거리는 양수여야 함
         bool distanceValid = (distance > 0.0 && distance < 1000000.0);
-        EXPECT_GT(distance, 0.0);
         EXPECT_LT(distance, 1000000.0); // 현실적인 거리 범위 (1000km 미만)
         
         bool testPassed = validator.IsValid(validWp) && !validator.IsValid(invalidWp) && distanceValid;

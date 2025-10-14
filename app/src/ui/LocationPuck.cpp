@@ -21,7 +21,7 @@ LocationPuck::LocationPuck(wxWindow* parent)
     isAnimating_ = false;
     // 현재 위치를 유효하지 않은 상태로 초기화
     currentLocation_ = LocationState();
-    animationStart_ = std::chrono::system_clock::now();
+    animationStart_ = std::chrono::steady_clock::now();
 }
 
 /* 🎯 다음 구현 가이드: UpdateLocation 메서드
@@ -68,7 +68,7 @@ void LocationPuck::UpdateLocation(const LocationState& newLocation) {
 
 void LocationPuck::StartAnimation(const LocationState& target) {
     targetLocation_ = target;
-    animationStart_ = std::chrono::system_clock::now();
+    animationStart_ = std::chrono::steady_clock::now();
     isAnimating_ = true;
     if (parent_) parent_->Refresh();
 }
@@ -100,7 +100,7 @@ currentLocation_.hasBearing가 true일 때만
 void LocationPuck::UpdateAnimation() {
     if (!isAnimating_) return;
 
-    auto now = std::chrono::system_clock::now();
+    auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - animationStart_).count();
     double progress = std::min(1.0, elapsed / static_cast<double>(ANIMATION_DURATION_MS));
 
@@ -117,7 +117,7 @@ void LocationPuck::UpdateAnimation() {
     }
 }
 
-void LocationPuck::Render(wxDC& dc, std::function<wxPoint(const LonLat&)>& coordToPixel) {
+void LocationPuck::Render(wxDC& dc, const std::function<wxPoint(const LonLat&)>& coordToPixel) {
     if (!isVisible_ || !currentLocation_.IsValid()) return;
 
     wxPoint center = coordToPixel(currentLocation_.coordinates);
@@ -255,7 +255,7 @@ void LocationPuck::SetVisible(bool visible) {
 LocationState LocationPuck::GetLocation() const {
     // 애니메이션 중이면 보간된 위치 반환
     if (isAnimating_) {
-        auto now = std::chrono::system_clock::now();
+        auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - animationStart_);
         double progress = static_cast<double>(elapsed.count()) / ANIMATION_DURATION_MS;
         

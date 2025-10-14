@@ -2,6 +2,7 @@
 #include <wx/wx.h>
 #include <chrono>
 #include <memory>
+#include <functional>
 #include "Types.h"
 
 namespace ui {
@@ -15,7 +16,7 @@ public:
     void UpdateLocation(const LocationState& newLocation);
     void StartAnimation(const LocationState& target);
     void UpdateAnimation(); // 애니메이션 상태 업데이트 (타이머에서 호출)
-    void Render(wxDC& dc, std::function<wxPoint(const LonLat&)>& coordToPixel);
+    void Render(wxDC& dc, const std::function<wxPoint(const LonLat&)>& coordToPixel);
     void SetTheme(const LocationPuckTheme& theme);
     void SetVisible(bool visible);
 
@@ -34,7 +35,7 @@ private:
     LocationState targetLocation_;  // 애니메이션 목표 위치
 
     // 애니메이션
-    std::chrono::system_clock::time_point animationStart_; // 애니메이션 시작 시각
+    std::chrono::steady_clock::time_point animationStart_; // 애니메이션 시작 시각
     bool isAnimating_{false}; // 애니메이션 진행 중 여부
     static constexpr int ANIMATION_DURATION_MS = 300; // 애니메이션 지속 시간
 
