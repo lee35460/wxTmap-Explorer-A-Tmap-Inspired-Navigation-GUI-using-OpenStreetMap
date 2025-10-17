@@ -7,7 +7,8 @@
 #include <sstream>
 #include <algorithm>
 #include <map>
-#include "domain/Types.h"
+#include "ProjectMap.h" 
+#include DOMAIN_TYPES
 
 namespace presentation::components {
 

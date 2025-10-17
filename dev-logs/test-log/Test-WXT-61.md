@@ -49,7 +49,7 @@
 - 판정: **통과**
 
 ## 13. BulkUpdateStressTest: 대량 동시 업데이트 처리 (100개 구독자)
-- 결과: 대량 동시 업데이트 49ms: PASS
+- 결과: 대량 동시 업데이트 41ms: PASS
 - 판정: **통과**
 
 ## 14. StateSerializationTest: 상태 직렬화/역직렬화 (디버깅/로깅용)

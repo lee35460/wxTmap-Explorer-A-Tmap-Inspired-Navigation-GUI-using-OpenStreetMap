@@ -65,6 +65,11 @@ set(SOURCES
     src/presentation/components/CameraController.cpp
     src/presentation/views/frames/DebugFrame.cpp
     src/domain/state/HudStateStore.cpp
+    # WXT-62: Route Progress-Based Visual Feedback
+    src/domain/services/RouteProgressCalculator.cpp
+    src/presentation/components/VisualFeedbackManager.cpp
+    src/presentation/components/EnhancedProgressBar.cpp
+    src/presentation/components/RouteProgressPipeline.cpp
 )
 
 set(HEADERS
@@ -87,6 +92,14 @@ set(HEADERS
     include/domain/state/NavigationState.h
     include/domain/state/HudStateStore.h
     include/presentation/components/StateSubscriberComponent.h
+    # WXT-62: Route Progress-Based Visual Feedback Headers
+    include/domain/state/RouteProgressState.h
+    include/domain/services/RouteProgressCalculator.h
+    include/presentation/components/VisualFeedbackManager.h
+    include/presentation/components/EnhancedProgressBar.h
+    include/presentation/components/RouteProgressPipeline.h
+    # Core macro system
+    ProjectMap.h
 )
 
 # --- Render core library (shared by exe & tests) ---
@@ -119,7 +132,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     include/presentation/views/frames
     include/presentation/views/panels
     include/infrastructure/rendering
-    ${CMAKE_CURRENT_SOURCE_DIR}  # 🗺️ ProjectMap.h 파일 접근을 위해 추가
+    ${CMAKE_CURRENT_SOURCE_DIR}  # 🗺️ app 디렉토리의 ProjectMap.h 접근
 )
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
@@ -154,11 +167,16 @@ if (BUILD_TESTING)
   src/presentation/components/LocationPuck.cpp
   src/presentation/components/CameraController.cpp
   src/domain/state/HudStateStore.cpp
+  # WXT-62: Route Progress-Based Visual Feedback (테스트용)
+  src/domain/services/RouteProgressCalculator.cpp
+  src/presentation/components/VisualFeedbackManager.cpp
+  src/presentation/components/EnhancedProgressBar.cpp
+  src/presentation/components/RouteProgressPipeline.cpp
   )
   add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
   target_include_directories(unit_tests PRIVATE 
       include
-      ${CMAKE_CURRENT_SOURCE_DIR}  # 🗺️ ProjectMap.h 파일 접근을 위해 추가
+      ${CMAKE_CURRENT_SOURCE_DIR}  # 🗺️ app 디렉토리의 ProjectMap.h 접근
   )
   target_link_libraries(unit_tests
       PRIVATE
