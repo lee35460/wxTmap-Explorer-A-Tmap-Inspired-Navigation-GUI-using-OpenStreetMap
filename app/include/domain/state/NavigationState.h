@@ -68,6 +68,11 @@ struct ExtendedLocationState : public LocationState {
         lastMovement = std::chrono::steady_clock::now();
     }
     
+    // 유효성 검사 (LocationState의 isValid 필드 기반)
+    bool IsValid() const {
+        return isValid && accuracy >= 0.0 && signalStrength >= 0 && signalStrength <= 100;
+    }
+    
     // GPS 신호 품질 평가
     bool HasGoodSignal() const {
         return signalStrength >= 50 && accuracy <= 10.0;

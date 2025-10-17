@@ -37,20 +37,33 @@ public:
 protected:
     /**
      * @brief 상태 스토어 구독 시작
+     * 주의: 이 메서드는 shared_ptr로 관리되는 객체에서만 호출해야 합니다.
      */
     void StartSubscription() {
-        auto sharedThis = std::static_pointer_cast<domain::state::StateSubscriber>(
-            this->shared_from_this());
-        domain::state::HudStateManager::GetInstance().Subscribe(sharedThis);
+        // shared_ptr로 관리되는 경우에만 구독 가능
+        try {
+            if (auto sharedThis = std::dynamic_pointer_cast<domain::state::StateSubscriber>(
+                    this->shared_from_this())) {
+                domain::state::HudStateManager::GetInstance().Subscribe(sharedThis);
+            }
+        } catch (const std::bad_weak_ptr&) {
+            // shared_ptr로 관리되지 않는 객체는 구독할 수 없음
+            // 로그만 남기고 조용히 실패
+        }
     }
     
     /**
      * @brief 상태 스토어 구독 해제
      */
     void StopSubscription() {
-        auto sharedThis = std::static_pointer_cast<domain::state::StateSubscriber>(
-            this->shared_from_this());
-        domain::state::HudStateManager::GetInstance().Unsubscribe(sharedThis);
+        try {
+            if (auto sharedThis = std::dynamic_pointer_cast<domain::state::StateSubscriber>(
+                    this->shared_from_this())) {
+                domain::state::HudStateManager::GetInstance().Unsubscribe(sharedThis);
+            }
+        } catch (const std::bad_weak_ptr&) {
+            // shared_ptr로 관리되지 않는 객체는 구독 해제할 필요 없음
+        }
     }
 };
 

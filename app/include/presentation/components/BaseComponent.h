@@ -39,7 +39,7 @@ public:
  * - class CustomControl : public BaseComponent<wxWindow>    // wxWindow 필요
  */
 template<typename WxBase = NoWxBase>
-class BaseComponent : public WxBase {
+class BaseComponent : public WxBase, public std::enable_shared_from_this<BaseComponent<WxBase>> {
 public:
     // === 생성자 - wxWidgets 의존성에 따라 다르게 처리 ===
     template<typename... Args>
