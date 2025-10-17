@@ -1,9 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - "**"
   pull_request:
   workflow_dispatch:
 
@@ -86,5 +83,4 @@ jobs:
         run: ccache --show-stats || true
 
       - name: Test
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         run: ctest --test-dir app/build --output-on-failure

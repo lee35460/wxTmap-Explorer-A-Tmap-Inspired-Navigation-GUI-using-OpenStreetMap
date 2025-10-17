@@ -64,6 +64,7 @@ set(SOURCES
     src/presentation/components/LocationPuck.cpp
     src/presentation/components/CameraController.cpp
     src/presentation/views/frames/DebugFrame.cpp
+    src/domain/state/HudStateStore.cpp
 )
 
 set(HEADERS
@@ -83,6 +84,9 @@ set(HEADERS
     include/presentation/components/LocationPuck.h
     include/presentation/components/CameraController.h
     include/presentation/views/frames/DebugFrame.h
+    include/domain/state/NavigationState.h
+    include/domain/state/HudStateStore.h
+    include/presentation/components/StateSubscriberComponent.h
 )
 
 # --- Render core library (shared by exe & tests) ---
@@ -137,7 +141,7 @@ if (BUILD_TESTING)
   endif()
 
   # Collect all test sources under test/*.cpp
-  file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp)
+  file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp test/domain/state/*.cpp)
   set(TEST_EXTRA_SOURCES 
   src/presentation/components/BaseComponent.cpp
   src/presentation/components/CameraPreset.cpp
@@ -149,6 +153,7 @@ if (BUILD_TESTING)
   src/presentation/components/WaypointListPanel.cpp
   src/presentation/components/LocationPuck.cpp
   src/presentation/components/CameraController.cpp
+  src/domain/state/HudStateStore.cpp
   )
   add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
   target_include_directories(unit_tests PRIVATE 
@@ -159,6 +164,7 @@ if (BUILD_TESTING)
       PRIVATE
           ${wxWidgets_LIBRARIES}
           GTest::gtest_main
+          GTest::gmock_main
           render_core
           nlohmann_json::nlohmann_json
           spdlog::spdlog_header_only
