@@ -1835,7 +1835,7 @@ void MapRenderPanel::OnAnimationTimer(wxTimerEvent& event) {
     
     // ✅ UI 클래스 애니메이션 업데이트 (위치는 OnUpdateTimer에서 설정됨)
     if (locationPuck_) {
-        locationPuck_->UpdateAnimation(); // UI 클래스 메서드 호출
+        locationPuck_->Update(16.67); // BaseComponent의 Update 메서드 호출 (60fps 기준)
     }
     
     // 📌 MapPanel에서는 이 패턴을 그대로 활용할 것

@@ -5,6 +5,7 @@
 #include <string>
 #include <chrono>
 #include <mutex>
+#include "presentation/components/BaseComponent.h"
 
 namespace presentation::components {
 
@@ -23,13 +24,17 @@ struct HudState {
 // 메트릭 훅: (key, value)
 using MetricFn = std::function<void(const std::string&, double)>;
 
-class MapOverlayHud : public wxPanel {
+class MapOverlayHud : public BaseComponent<wxPanel> {
 public:
     explicit MapOverlayHud(wxWindow* parent,
                            wxWindowID id = wxID_ANY,
                            const wxPoint& pos = wxDefaultPosition,
                            const wxSize& size = wxDefaultSize);
 
+    // === BaseComponent 오버라이드 ===
+    void Render(wxDC& dc) override;
+
+    // === HUD 특화 메서드들 ===
     void SetState(const HudState& s);          // 상태 바인딩(스레드 안전)
     void ToggleVisible();                      // 표시/숨김 토글
     void SetMetricHook(MetricFn fn);           // 메트릭 콜백 주입

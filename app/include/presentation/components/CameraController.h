@@ -4,15 +4,19 @@
 #include DOMAIN_TYPES
 #include <functional>
 #include <chrono>
+#include "presentation/components/BaseComponent.h"
 
 namespace presentation::components {
 
-// 카메라 follow 로직 담당
-class CameraController {
+// 카메라 follow 로직 담당 (wxWidgets 불필요)
+class CameraController : public BaseComponent<NoWxBase> {
 public:
-    CameraController();
+    explicit CameraController(wxWindow* parent = nullptr);
     
-    // Follow 모드 설정
+    // === BaseComponent 오버라이드 ===
+    void Render(wxDC& dc) override {} // CameraController는 렌더링하지 않음
+    
+    // === CameraController 특화 메서드들 ===
     void SetFollowMode(CameraFollowMode mode);
     CameraFollowMode GetFollowMode() const { return followMode_; }
     

@@ -7,7 +7,9 @@ using namespace presentation::components;
 
 namespace presentation::components {
 
-CameraController::CameraController() = default;
+CameraController::CameraController(wxWindow* parent) 
+    : BaseComponent<NoWxBase>() {
+}
 
 void CameraController::SetFollowMode(CameraFollowMode mode) {
     followMode_ = mode;

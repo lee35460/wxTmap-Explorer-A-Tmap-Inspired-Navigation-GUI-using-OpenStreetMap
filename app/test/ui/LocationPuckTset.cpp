@@ -75,8 +75,11 @@ TEST_F(WXT_59_LocationPuckTestFixture, LocationPuckAnimationTest) {
     auto animStart = std::chrono::steady_clock::now();
     locationPuck_->UpdateLocation(endLocation);
     
-    // 애니메이션 중간 상태 확인
-    std::this_thread::sleep_for(std::chrono::milliseconds(150)); // 50% 진행
+    // 애니메이션 진행을 위해 Update 호출 (150ms = 15 프레임, 10ms 간격)
+    for (int i = 0; i < 15; ++i) {
+        locationPuck_->Update(0.01); // 10ms = 0.01초
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
     LocationState midState = locationPuck_->GetLocation();
     
     // 중간 위치가 시작과 끝 사이에 있는지 확인

@@ -12,10 +12,20 @@ wxBEGIN_EVENT_TABLE(MapOverlayHud, wxPanel)
     EVT_SIZE(MapOverlayHud::OnSize)
 wxEND_EVENT_TABLE()
 
+void MapOverlayHud::Render(wxDC& dc) {
+    if (!IsVisible()) return;
+    
+    std::lock_guard<std::mutex> lk(mtx_);
+    DrawHudStatic(dc, state_, dpi_scale_);
+    
+    // 렌더링 메트릭 업데이트
+    renderCount_++;
+    lastRenderTime_ = std::chrono::steady_clock::now();
+}
+
 MapOverlayHud::MapOverlayHud(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size)
-    : wxPanel(parent, id, pos, size)
+    : BaseComponent<wxPanel>(parent, id, pos, size)
 {
-    SetBackgroundStyle(wxBG_STYLE_PAINT); // 더블버퍼 페인트
 #if defined(__WXMAC__)
     dpi_scale_ = std::max(1, int(std::round(GetContentScaleFactor())));
 #else
