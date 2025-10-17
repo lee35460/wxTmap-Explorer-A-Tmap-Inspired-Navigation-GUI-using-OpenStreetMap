@@ -46,7 +46,9 @@ void CameraController::UpdateLocation(const LocationState& location) {
         LonLat targetCenter = location.coordinates;
         double targetBearing = CalculateCameraBearing(location);
         
-        CameraViewport targetViewport(targetCenter, currentViewport_.zoom, targetBearing);
+        // zoom이 초기화되지 않은 경우 기본값 사용
+        double targetZoom = (currentViewport_.zoom > 0) ? currentViewport_.zoom : 15.0;
+        CameraViewport targetViewport(targetCenter, targetZoom, targetBearing);
         
         // 애니메이션으로 전환
         CameraAnimationConfig config(animationDuration_, EasingType::EaseOut);
@@ -288,4 +290,4 @@ bool CameraController::ShouldInterruptAnimation() const {
     return false;
 }
 
-} // namespace ui
+} // namespace presentation::components

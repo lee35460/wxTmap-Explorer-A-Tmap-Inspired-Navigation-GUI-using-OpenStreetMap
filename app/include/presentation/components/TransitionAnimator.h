@@ -17,7 +17,7 @@ public:
     
     // === BaseComponent 오버라이드 ===
     void Render(wxDC& dc) override {} // TransitionAnimator는 렌더링하지 않음
-    void Render(wxDC& dc, const CoordTransformFn& coordToPixel) override {} // RenderableComponent 오버라이드
+    void Render(wxDC& dc, const RenderableComponent::CoordTransformFn& coordToPixel) override {} // RenderableComponent 오버라이드
     void Update(double deltaTime) override;
     
     // === AnimatedComponent 오버라이드 ===

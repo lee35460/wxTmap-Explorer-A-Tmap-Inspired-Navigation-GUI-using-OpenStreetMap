@@ -14,7 +14,7 @@ public:
     explicit LocationPuck(wxWindow* parent = nullptr);
     
     // === AnimatedComponent 오버라이드 ===
-    void Render(wxDC& dc, const CoordTransformFn& coordToPixel) override;
+    void Render(wxDC& dc, const RenderableComponent::CoordTransformFn& coordToPixel) override;
     void Update(double deltaTime) override;
     
     // === LocationPuck 특화 메서드들 ===

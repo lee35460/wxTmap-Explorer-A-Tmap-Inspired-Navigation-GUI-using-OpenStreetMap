@@ -1,5 +1,6 @@
 #include "DebugFrame.h"
-#include "../../../domain/Types.h"  // 4계층 구조: domain의 Types.h
+#include "ProjectMap.h"
+#include DOMAIN_TYPES  // 4계층 구조: domain의 Types.h
 #include <wx/sizer.h>
 #include <wx/splitter.h>     // wxSplitterWindow 사용
 #include <wx/msgdlg.h>       // wxMessageBox 사용

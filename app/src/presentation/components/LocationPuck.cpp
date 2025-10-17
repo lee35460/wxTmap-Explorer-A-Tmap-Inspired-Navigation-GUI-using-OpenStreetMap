@@ -83,7 +83,7 @@ void LocationPuck::Update(double deltaTime) {
     }
 }
 
-void LocationPuck::Render(wxDC& dc, const CoordTransformFn& coordToPixel) {
+void LocationPuck::Render(wxDC& dc, const RenderableComponent::CoordTransformFn& coordToPixel) {
     if (!IsVisible() || !currentLocation_.IsValid()) return;
 
     wxPoint center = coordToPixel(GetPosition());

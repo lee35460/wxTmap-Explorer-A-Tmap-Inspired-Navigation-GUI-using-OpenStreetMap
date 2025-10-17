@@ -13,7 +13,8 @@
 #include <wx/spinctrl.h>
 #include <memory>
 #include <vector>
-#include "../../../domain/Types.h"  // 4계층 구조: domain의 Types
+#include "ProjectMap.h"
+#include DOMAIN_TYPES
 
 // 4계층 구조: Forward declarations
 namespace infrastructure {

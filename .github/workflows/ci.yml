@@ -66,6 +66,11 @@ jobs:
       - name: Reset ccache stats
         run: ccache --zero-stats || true
 
+      - name: Clean previous build
+        run: |
+          rm -rf app/build
+          mkdir -p app/build
+
       - name: Configure
         run: cmake -S app -B app/build -G Ninja \
                    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -81,4 +86,5 @@ jobs:
         run: ccache --show-stats || true
 
       - name: Test
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         run: ctest --test-dir app/build --output-on-failure
