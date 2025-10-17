@@ -12,6 +12,8 @@
 #define DOMAIN_ENTITIES_ROUTE           "domain/entities/Route.h"
 #define DOMAIN_ENTITIES_MAPVIEW         "domain/entities/MapView.h"
 #define DOMAIN_SERVICES_ROUTE_PLANNER   "domain/services/IRoutePlanner.h"
+#define DOMAIN_STATE_NAVIGATION         "domain/state/NavigationState.h"
+#define DOMAIN_STATE_HUD_STORE          "domain/state/HudStateStore.h"
 
 // === 🏗️ INFRASTRUCTURE LAYER (외부 시스템, 렌더링, 영속성) ===
 #define INFRASTRUCTURE_RENDER_PIPELINE      "infrastructure/rendering/RenderPipeline.h"
@@ -35,6 +37,7 @@
 #define PRESENTATION_POLYLINE_STYLER        "presentation/components/PolylineStyler.h"
 #define PRESENTATION_MAP_OVERLAY_THEME      "presentation/components/MapOverlayTheme.h"
 #define PRESENTATION_UI_DISPATCHER          "presentation/components/UiDispatcher.h"
+#define PRESENTATION_STATE_SUBSCRIBER       "presentation/components/StateSubscriberComponent.h"
 
 // Views
 #define PRESENTATION_APP_FRAME              "presentation/views/frames/AppFrame.h"
