@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
-#include "ui/MapOverlayHud.h"
+#include "ProjectMap.h"  // 🗺️ 프로젝트 파일 지도 사용
+#include PRESENTATION_MAP_OVERLAY_HUD  // "presentation/components/MapOverlayHud.h"로 자동 확장
 #include <wx/dcmemory.h>
 #include <wx/bitmap.h>
 #include <wx/wx.h>
@@ -13,14 +14,14 @@ class WXT_55_MapOverlayHudTestFixture : public ::testing::Test {
 protected:
     void SetUp() override {
         // unique_ptr로 복잡한 상태 객체들 관리
-        hudState_ = std::make_unique<ui::HudState>();
+        hudState_ = std::make_unique<presentation::components::HudState>();
         // wxWidgets 객체들은 스택에서 관리 (RAII로 충분히 안전)
     }
     
     // TearDown() 불필요! unique_ptr가 소멸자에서 자동으로 정리됨
     
 protected:
-    std::unique_ptr<ui::HudState> hudState_;
+    std::unique_ptr<presentation::components::HudState> hudState_;
 };
 
 // 픽스처를 사용하는 복잡한 테스트로 변경
@@ -36,7 +37,7 @@ TEST_F(WXT_55_MapOverlayHudTestFixture, HudOverlayRenderingPerformance) {
     
     for (int i = 0; i < frame_count; ++i) {
         // 픽스처의 unique_ptr로 관리되는 상태 사용
-        ui::MapOverlayHud::DrawHudStatic(dc, *hudState_, 1);
+        presentation::components::MapOverlayHud::DrawHudStatic(dc, *hudState_, 1);
     }
     
     auto end = std::chrono::steady_clock::now();

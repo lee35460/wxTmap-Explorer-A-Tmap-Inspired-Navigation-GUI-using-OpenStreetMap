@@ -1,5 +1,6 @@
-#include "ui/UiDispatcher.h"
 #include <gtest/gtest.h>
+#include "ProjectMap.h" 
+#include PRESENTATION_UI_DISPATCHER
 #include <atomic>
 #include <thread>
 #include <iostream>

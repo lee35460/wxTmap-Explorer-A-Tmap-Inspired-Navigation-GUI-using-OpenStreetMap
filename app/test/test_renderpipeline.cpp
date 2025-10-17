@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
-#include "render/RenderPipeline.h"
-#include "render/RenderMetricsExporter.h"
+#include "ProjectMap.h"  // 🗺️ 프로젝트 파일 지도 사용
+#include INFRASTRUCTURE_RENDER_PIPELINE  // "infrastructure/rendering/RenderPipeline.h"로 자동 확장
+#include INFRASTRUCTURE_RENDER_METRICS  // "infrastructure/rendering/RenderMetricsExporter.h"로 자동 확장
 #include <fstream>
 #include <cstdio>
 #include <thread>

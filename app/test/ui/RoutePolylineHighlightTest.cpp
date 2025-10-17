@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
-#include "ui/PolylineHighlight.h"
-#include "render/RenderPipeline.h" 
-#include "ui/PolylineStyler.h"
+#include "ProjectMap.h"  // 🗺️ 프로젝트 파일 지도 사용
+#include PRESENTATION_POLYLINE_HIGHLIGHT  // "presentation/components/PolylineHighlight.h"로 자동 확장
+#include INFRASTRUCTURE_RENDER_PIPELINE  // "infrastructure/rendering/RenderPipeline.h"로 자동 확장
+#include PRESENTATION_POLYLINE_STYLER  // "presentation/components/PolylineStyler.h"로 자동 확장
 #include <chrono>
 #include <iostream>
 #include <memory>
@@ -13,11 +14,11 @@ class WXT_57_PolylineHighlightTestFixture : public ::testing::Test {
 protected:
     void SetUp() override {
         renderPipeline_ = std::make_unique<RenderPipeline>();
-        defaultTheme_ = std::make_unique<ui::PolylineTheme>();
+        defaultTheme_ = std::make_unique<presentation::components::PolylineTheme>();
         defaultTheme_->doneColor = wxColour(0, 255, 0);      // 초록색
         defaultTheme_->remainColor = wxColour(0, 128, 255);  // 파란색
         
-        renderer_ = std::make_unique<ui::PolylineHighlightRenderer>(*renderPipeline_, *defaultTheme_);
+        renderer_ = std::make_unique<presentation::components::PolylineHighlightRenderer>(*renderPipeline_, *defaultTheme_);
         
         // 공통 테스트 경로 설정
         testRoute_ = {
@@ -31,8 +32,8 @@ protected:
     
 protected:
     std::unique_ptr<RenderPipeline> renderPipeline_;
-    std::unique_ptr<ui::PolylineTheme> defaultTheme_;
-    std::unique_ptr<ui::PolylineHighlightRenderer> renderer_;
+    std::unique_ptr<presentation::components::PolylineTheme> defaultTheme_;
+    std::unique_ptr<presentation::components::PolylineHighlightRenderer> renderer_;
     std::vector<LonLat> testRoute_;
 };
 
@@ -48,7 +49,7 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, HighlightRenderingVerification) {
     EXPECT_LE(progress, 1.0);
     
     // 분할된 세그먼트 검증
-    auto [completed, remaining] = ui::SplitPolylineByProgress(testRoute_, progress);
+    auto [completed, remaining] = presentation::components::SplitPolylineByProgress(testRoute_, progress);
     bool segmentValid = !completed.empty() && !remaining.empty();
     bool progressValid = (progress >= 0.0 && progress <= 1.0);
     bool routeValid = (testRoute_.size() >= 2);
@@ -72,7 +73,7 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, RealTimeProgressUpdateVerification) 
         renderer_->renderHighlightedPolyline(testRoute_, progress);
         
         // 진행률에 따른 세그먼트 분할 검증
-        auto [completed, remaining] = ui::SplitPolylineByProgress(testRoute_, progress);
+        auto [completed, remaining] = presentation::components::SplitPolylineByProgress(testRoute_, progress);
         
         if (progress == 0.0) {
             EXPECT_TRUE(completed.empty());
@@ -89,7 +90,7 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, RealTimeProgressUpdateVerification) 
     // 모든 진행률 단계가 올바르게 처리되었는지 검증
     bool allStepsValid = true;
     for (double progress : progressSteps) {
-        auto [comp, rem] = ui::SplitPolylineByProgress(testRoute_, progress);
+        auto [comp, rem] = presentation::components::SplitPolylineByProgress(testRoute_, progress);
         if (progress == 0.0 && (!comp.empty() || rem.empty())) allStepsValid = false;
         if (progress == 1.0 && (comp.empty() || !rem.empty())) allStepsValid = false;
         if (progress > 0.0 && progress < 1.0 && (comp.empty() || rem.empty())) allStepsValid = false;
@@ -102,7 +103,7 @@ TEST_F(WXT_57_PolylineHighlightTestFixture, RealTimeProgressUpdateVerification) 
 // • PolylineStyleSeparationTest: 스타일 변경이 기존 경로와 명확히 구분되는지
 TEST_F(WXT_57_PolylineHighlightTestFixture, StyleDistinctionVerification) {
     // 커스텀 테마 생성
-    ui::PolylineTheme customTheme;
+    presentation::components::PolylineTheme customTheme;
     customTheme.doneColor = wxColour(255, 0, 0);    // 빨간색
     customTheme.remainColor = wxColour(128, 128, 128); // 회색
     customTheme.cap = wxCAP_PROJECTING;
@@ -200,7 +201,7 @@ TEST(WXT_57_PolylineHighlightLogicTest, HighlightCalculationAccuracyVerification
     };
     
     for (const auto& testCase : testCases) {
-        auto [completed, remaining] = ui::SplitPolylineByProgress(testRoute, testCase.progress);
+        auto [completed, remaining] = presentation::components::SplitPolylineByProgress(testRoute, testCase.progress);
         
         // 크기 검증
         EXPECT_EQ(completed.size(), testCase.expectedCompletedMinSize);
@@ -225,7 +226,7 @@ TEST(WXT_57_PolylineHighlightLogicTest, HighlightCalculationAccuracyVerification
     // 모든 테스트 케이스가 성공했는지 확인
     bool allTestsPassed = true;
     for (const auto& testCase : testCases) {
-        auto [completed, remaining] = ui::SplitPolylineByProgress(testRoute, testCase.progress);
+        auto [completed, remaining] = presentation::components::SplitPolylineByProgress(testRoute, testCase.progress);
         if (completed.size() != testCase.expectedCompletedMinSize || 
             remaining.size() != testCase.expectedRemainingMinSize) {
             allTestsPassed = false;

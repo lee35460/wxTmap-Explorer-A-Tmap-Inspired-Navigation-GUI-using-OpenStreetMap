@@ -50,53 +50,52 @@ endif()
 
 # --- Sources (app executable; do NOT list render/*.cpp here) ---
 set(SOURCES
-    src/main.cpp
-    src/AppFrame.cpp
-    src/MapPanel.cpp
-    src/TmapClient.cpp
-    src/SimBridgeDummy.cpp
-    src/planners/DummyPlanner.cpp
-    src/planners/GridAStarPlanner.cpp
-    src/planners/PlannerFactory.cpp
-    src/ui/MapOverlayHud.cpp
-    src/ui/TurnBanner.cpp
-    src/ui/NavigationProgressBar.cpp
-    src/ui/PolylineHighlight.cpp
-    src/ui/WaypointListPanel.cpp
-    src/ui/LocationPuck.cpp
-    src/ui/CameraController.cpp
-    src/DebugFrame.cpp
+    src/presentation/main.cpp
+    src/presentation/views/frames/AppFrame.cpp
+    src/presentation/views/panels/MapPanel.cpp
+    src/presentation/components/BaseComponent.cpp
+    src/presentation/components/CameraPreset.cpp
+    src/presentation/components/TransitionAnimator.cpp
+    src/presentation/components/MapOverlayHud.cpp
+    src/presentation/components/TurnBanner.cpp
+    src/presentation/components/NavigationProgressBar.cpp
+    src/presentation/components/PolylineHighlight.cpp
+    src/presentation/components/WaypointListPanel.cpp
+    src/presentation/components/LocationPuck.cpp
+    src/presentation/components/CameraController.cpp
+    src/presentation/views/frames/DebugFrame.cpp
 )
 
 set(HEADERS
-    include/AppFrame.h
-    include/MapPanel.h
-    include/TmapClient.h
-    include/IRoutePlanner.h
-    include/IsimBridge.h
-    include/Types.h
-    include/planners/DummyPlanner.h
-    include/planners/GridAStarPlanner.h
-    include/planners/PlannerFactory.h
-    include/render/RenderPipeline.h
-    include/render/RenderMetricsExporter.h
-    include/ui/UiDispatcher.h
-    include/ui/MapOverlayHud.h
-    include/ui/TurnBanner.h
-    include/ui/NavigationProgressBar.h
-    include/ui/PolylineHighlight.h
-    include/ui/WaypointListPanel.h
-    include/ui/LocationPuck.h
-    include/ui/CameraController.h
-    include/DebugFrame.h
+    include/presentation/views/frames/AppFrame.h
+    include/presentation/views/panels/MapPanel.h
+    include/domain/Types.h
+    include/infrastructure/rendering/RenderPipeline.h
+    include/infrastructure/rendering/RenderMetricsExporter.h
+    include/presentation/components/BaseComponent.h
+    include/presentation/components/CameraPreset.h
+    include/presentation/components/TransitionAnimator.h
+    include/presentation/components/MapOverlayHud.h
+    include/presentation/components/TurnBanner.h
+    include/presentation/components/NavigationProgressBar.h
+    include/presentation/components/PolylineHighlight.h
+    include/presentation/components/WaypointListPanel.h
+    include/presentation/components/LocationPuck.h
+    include/presentation/components/CameraController.h
+    include/presentation/views/frames/DebugFrame.h
 )
 
 # --- Render core library (shared by exe & tests) ---
 add_library(render_core STATIC
-    src/render/RenderPipeline.cpp
-    src/render/RenderMetricsExporter.cpp
+    src/infrastructure/rendering/RenderPipeline.cpp
+    src/infrastructure/rendering/RenderMetricsExporter.cpp
 )
-target_include_directories(render_core PUBLIC include)
+target_include_directories(render_core PUBLIC 
+    include
+    include/domain
+    include/infrastructure
+    include/infrastructure/rendering
+)
 target_link_libraries(render_core
     PUBLIC
         nlohmann_json::nlohmann_json
@@ -107,7 +106,17 @@ target_compile_definitions(render_core PUBLIC FMT_HEADER_ONLY=1)
 
 # --- Executable ---
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
-target_include_directories(${PROJECT_NAME} PRIVATE include)
+target_include_directories(${PROJECT_NAME} PRIVATE 
+    include
+    include/domain
+    include/infrastructure
+    include/presentation
+    include/presentation/components
+    include/presentation/views/frames
+    include/presentation/views/panels
+    include/infrastructure/rendering
+    ${CMAKE_CURRENT_SOURCE_DIR}  # 🗺️ ProjectMap.h 파일 접근을 위해 추가
+)
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         ${wxWidgets_LIBRARIES}
@@ -130,16 +139,22 @@ if (BUILD_TESTING)
   # Collect all test sources under test/*.cpp
   file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp)
   set(TEST_EXTRA_SOURCES 
-  src/ui/MapOverlayHud.cpp
-  src/ui/TurnBanner.cpp
-  src/ui/NavigationProgressBar.cpp
-  src/ui/PolylineHighlight.cpp
-  src/ui/WaypointListPanel.cpp
-  src/ui/LocationPuck.cpp
-  src/ui/CameraController.cpp
+  src/presentation/components/BaseComponent.cpp
+  src/presentation/components/CameraPreset.cpp
+  src/presentation/components/TransitionAnimator.cpp
+  src/presentation/components/MapOverlayHud.cpp
+  src/presentation/components/TurnBanner.cpp
+  src/presentation/components/NavigationProgressBar.cpp
+  src/presentation/components/PolylineHighlight.cpp
+  src/presentation/components/WaypointListPanel.cpp
+  src/presentation/components/LocationPuck.cpp
+  src/presentation/components/CameraController.cpp
   )
   add_executable(unit_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
-  target_include_directories(unit_tests PRIVATE include)
+  target_include_directories(unit_tests PRIVATE 
+      include
+      ${CMAKE_CURRENT_SOURCE_DIR}  # 🗺️ ProjectMap.h 파일 접근을 위해 추가
+  )
   target_link_libraries(unit_tests
       PRIVATE
           ${wxWidgets_LIBRARIES}
