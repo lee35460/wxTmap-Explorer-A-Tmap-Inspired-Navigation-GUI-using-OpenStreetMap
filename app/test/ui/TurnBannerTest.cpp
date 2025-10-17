@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
-#include "ui/TurnBanner.h"
-#include "ui/NavigationProgressBar.h"
+#include "ProjectMap.h"  // 🗺️ 프로젝트 파일 지도 사용
+#include PRESENTATION_TURN_BANNER  // "presentation/components/TurnBanner.h"로 자동 확장
+#include PRESENTATION_NAVIGATION_PROGRESS  // "presentation/components/NavigationProgressBar.h"로 자동 확장
 #include <wx/dcmemory.h>
 #include <wx/bitmap.h>
 #include <chrono>
@@ -14,8 +15,8 @@ class WXT_56_NavigationTestFixture : public ::testing::Test {
 protected:
     void SetUp() override {
         // unique_ptr로 복잡한 상태 객체들 관리
-        turnBannerState_ = std::make_unique<ui::TurnBannerState>();
-        navigationProgress_ = std::make_unique<ui::NavigationProgress>();
+        turnBannerState_ = std::make_unique<presentation::components::TurnBannerState>();
+        navigationProgress_ = std::make_unique<presentation::components::NavigationProgress>();
         
         // 초기 상태 설정
         turnBannerState_->visible = true;
@@ -23,11 +24,11 @@ protected:
     }
     
 protected:
-    std::unique_ptr<ui::TurnBannerState> turnBannerState_;
-    std::unique_ptr<ui::NavigationProgress> navigationProgress_;
+    std::unique_ptr<presentation::components::TurnBannerState> turnBannerState_;
+    std::unique_ptr<presentation::components::NavigationProgress> navigationProgress_;
 };
 
-using namespace ui;
+using namespace presentation::components;
 
 TEST_F(WXT_56_NavigationTestFixture, TurnBannerRenderingPerformance) {
     wxBitmap bmp(800, 600);

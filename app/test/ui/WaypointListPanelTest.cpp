@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
-#include "ui/WaypointListPanel.h"
-#include "Types.h"
+#include "ProjectMap.h"
+#include PRESENTATION_WAYPOINT_LIST
+#include DOMAIN_TYPES
 #include <wx/wx.h>
 #include <wx/app.h>
 #include <chrono>
@@ -383,7 +384,7 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, InitialRenderingPerformanceVerificat
 // WaypointValidator 및 DistanceCalculator 유틸리티 테스트
 TEST_F(WXT_58_WaypointListPanelTestFixture, UtilityClassesVerification) {
     // WaypointValidator 테스트
-    ui::WaypointValidator validator;
+    presentation::components::WaypointValidator validator;
     
     // 유효한 웨이포인트
     Waypoint validWp({127.0, 37.0}, "Valid Point");
@@ -394,7 +395,7 @@ TEST_F(WXT_58_WaypointListPanelTestFixture, UtilityClassesVerification) {
     EXPECT_FALSE(validator.IsValid(invalidWp));
     
     // DistanceCalculator 테스트
-    ui::DistanceCalculator calculator;
+    presentation::components::DistanceCalculator calculator;
     
     if (testWaypoints_->size() >= 2) {
         Waypoint wp1 = (*testWaypoints_)[0];

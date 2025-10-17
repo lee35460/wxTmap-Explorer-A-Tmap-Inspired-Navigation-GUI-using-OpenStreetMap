@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
-#include "ui/LocationPuck.h"
-#include "ui/CameraController.h"
-#include "Types.h"
+#include "ProjectMap.h"  // 🗺️ 프로젝트 파일 지도 사용
+#include PRESENTATION_LOCATION_PUCK  // "presentation/components/LocationPuck.h"로 자동 확장
+#include PRESENTATION_CAMERA_CONTROLLER  // "presentation/components/CameraController.h"로 자동 확장
+#include "domain/Types.h"                              // Clean domain access
 #include <wx/wx.h>
 #include <wx/app.h>
 #include <chrono>
@@ -23,8 +24,8 @@ protected:
         
         // 테스트용 부모 윈도우 (unique_ptr 사용)
         parent_ = std::make_unique<wxFrame>(nullptr, wxID_ANY, "Test");
-        locationPuck_ = std::make_unique<ui::LocationPuck>(parent_.get());
-        cameraController_ = std::make_unique<ui::CameraController>();
+        locationPuck_ = std::make_unique<presentation::components::LocationPuck>(parent_.get());
+        cameraController_ = std::make_unique<presentation::components::CameraController>();
     }
     
     void TearDown() override {
@@ -36,8 +37,8 @@ protected:
     
 protected:
     std::unique_ptr<wxFrame> parent_;
-    std::unique_ptr<ui::LocationPuck> locationPuck_;
-    std::unique_ptr<ui::CameraController> cameraController_;
+    std::unique_ptr<presentation::components::LocationPuck> locationPuck_;
+    std::unique_ptr<presentation::components::CameraController> cameraController_;
 };
 
 // Desc-WXT-59.md TEST 항목과 동일한 함수명 사용
