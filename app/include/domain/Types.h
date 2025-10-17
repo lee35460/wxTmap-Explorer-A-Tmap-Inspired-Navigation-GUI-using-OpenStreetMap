@@ -231,4 +231,116 @@ struct LocationPuckTheme {
 inline double CalculateDistance(const LonLat& from, const LonLat& to) {
     return from.DistanceTo(to);
 }
+
+// === WXT-60: 카메라 프리셋 및 애니메이션 타입 ===
+
+// 이징 함수 타입
+enum class EasingType {
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseInOut
+};
+
+// 카메라 뷰포트 정의
+struct CameraViewport {
+    LonLat center;
+    double zoom;
+    double bearing{0.0};
+    
+    CameraViewport() = default;
+    CameraViewport(const LonLat& c, double z, double b = 0.0) 
+        : center(c), zoom(z), bearing(b) {}
+    
+    bool operator==(const CameraViewport& other) const {
+        return center.lon == other.center.lon && 
+               center.lat == other.center.lat &&
+               zoom == other.zoom &&
+               bearing == other.bearing;
+    }
+};
+
+// 카메라 프리셋 타입
+enum class CameraPresetType {
+    Default,        // 기본 (서울 중심)
+    UserLocation,   // 사용자 위치
+    Route,          // 경로 전체
+    Custom          // 사용자 정의
+};
+
+// 카메라 프리셋 정의
+struct CameraPreset {
+    CameraPresetType type;
+    CameraViewport viewport;
+    std::string name;
+    
+    CameraPreset() = default;
+    CameraPreset(CameraPresetType t, const CameraViewport& v, const std::string& n = "") 
+        : type(t), viewport(v), name(n) {}
+};
+
+// 애니메이션 상태
+enum class AnimationState {
+    Idle,
+    Running,
+    Paused,
+    Completed
+};
+
+// 카메라 애니메이션 설정
+struct CameraAnimationConfig {
+    double duration{1000.0};    // ms
+    EasingType easing{EasingType::EaseInOut};
+    bool interruptible{true};   // 사용자 인터랙션으로 중단 가능
+    
+    CameraAnimationConfig() = default;
+    CameraAnimationConfig(double dur, EasingType e = EasingType::EaseInOut, bool inter = true)
+        : duration(dur), easing(e), interruptible(inter) {}
+};
+
+// === 기본 프리셋 상수 ===
+namespace CameraPresets {
+    // 서울 중심 기본 뷰
+    inline CameraViewport Seoul() {
+        return CameraViewport(LonLat(126.9784, 37.5666), 11.0); // 서울시청 중심, 적당한 줌
+    }
+    
+    // 사용자 위치 중심 뷰 (줌 레벨 높음)
+    inline CameraViewport UserLocationView(const LonLat& location) {
+        return CameraViewport(location, 15.0); // 상세 뷰
+    }
+    
+    // 경로 전체를 포함하는 뷰 계산
+    inline CameraViewport RouteView(const std::vector<LonLat>& routePoints) {
+        if (routePoints.empty()) return Seoul();
+        
+        // 경계 상자 계산
+        double minLon = routePoints[0].lon, maxLon = routePoints[0].lon;
+        double minLat = routePoints[0].lat, maxLat = routePoints[0].lat;
+        
+        for (const auto& point : routePoints) {
+            minLon = std::min(minLon, point.lon);
+            maxLon = std::max(maxLon, point.lon);
+            minLat = std::min(minLat, point.lat);
+            maxLat = std::max(maxLat, point.lat);
+        }
+        
+        // 중심점 계산
+        LonLat center((minLon + maxLon) / 2.0, (minLat + maxLat) / 2.0);
+        
+        // 적절한 줌 레벨 계산 (거리 기반)
+        double lonSpan = maxLon - minLon;
+        double latSpan = maxLat - minLat;
+        double maxSpan = std::max(lonSpan, latSpan);
+        
+        // 줌 레벨 매핑 (대략적)
+        double zoom = 15.0;
+        if (maxSpan > 0.1) zoom = 9.0;       // 도시 단위
+        else if (maxSpan > 0.01) zoom = 12.0; // 지역 단위
+        else if (maxSpan > 0.001) zoom = 15.0; // 근거리
+        
+        return CameraViewport(center, zoom);
+    }
+}
+
 // }    

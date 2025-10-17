@@ -54,6 +54,8 @@ set(SOURCES
     src/presentation/views/frames/AppFrame.cpp
     src/presentation/views/panels/MapPanel.cpp
     src/presentation/components/BaseComponent.cpp
+    src/presentation/components/CameraPreset.cpp
+    src/presentation/components/TransitionAnimator.cpp
     src/presentation/components/MapOverlayHud.cpp
     src/presentation/components/TurnBanner.cpp
     src/presentation/components/NavigationProgressBar.cpp
@@ -71,6 +73,8 @@ set(HEADERS
     include/infrastructure/rendering/RenderPipeline.h
     include/infrastructure/rendering/RenderMetricsExporter.h
     include/presentation/components/BaseComponent.h
+    include/presentation/components/CameraPreset.h
+    include/presentation/components/TransitionAnimator.h
     include/presentation/components/MapOverlayHud.h
     include/presentation/components/TurnBanner.h
     include/presentation/components/NavigationProgressBar.h
@@ -136,6 +140,8 @@ if (BUILD_TESTING)
   file(GLOB TEST_SOURCES CONFIGURE_DEPENDS test/*.cpp test/ui/*.cpp)
   set(TEST_EXTRA_SOURCES 
   src/presentation/components/BaseComponent.cpp
+  src/presentation/components/CameraPreset.cpp
+  src/presentation/components/TransitionAnimator.cpp
   src/presentation/components/MapOverlayHud.cpp
   src/presentation/components/TurnBanner.cpp
   src/presentation/components/NavigationProgressBar.cpp

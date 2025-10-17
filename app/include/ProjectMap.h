@@ -22,7 +22,10 @@
 
 // === 🎨 PRESENTATION LAYER (UI 컴포넌트, 뷰, 컨트롤러) ===
 // UI Components
+#define PRESENTATION_BASE_COMPONENT         "presentation/components/BaseComponent.h"
 #define PRESENTATION_CAMERA_CONTROLLER      "presentation/components/CameraController.h"
+#define PRESENTATION_CAMERA_PRESET          "presentation/components/CameraPreset.h"
+#define PRESENTATION_TRANSITION_ANIMATOR    "presentation/components/TransitionAnimator.h"
 #define PRESENTATION_LOCATION_PUCK          "presentation/components/LocationPuck.h"
 #define PRESENTATION_MAP_OVERLAY_HUD        "presentation/components/MapOverlayHud.h"
 #define PRESENTATION_NAVIGATION_PROGRESS    "presentation/components/NavigationProgressBar.h"
