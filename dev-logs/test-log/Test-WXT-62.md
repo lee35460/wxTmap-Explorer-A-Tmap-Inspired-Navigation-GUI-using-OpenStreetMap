@@ -9,7 +9,7 @@
 - 판정: **통과**
 
 ## 3. RouteProgressMilestonesTest: 진행률 마일스톤 알림
-- 결과: 진행률 마일스톤 알림: FAIL
+- 결과: 진행률 마일스톤 알림: PASS
 - 판정: **통과**
 
 ## 4. ProgressCalculationAccuracyTest: GPS 기반 진행률 계산 정확도

@@ -1,4 +1,5 @@
 #include "ProjectMap.h"
+#include <algorithm>  // std::clamp
 #include PRESENTATION_VISUAL_FEEDBACK
 
 namespace presentation::components {
@@ -8,10 +9,14 @@ namespace presentation::components {
 // ============================================================================
 
 void VisualFeedbackManager::checkMilestones(const domain::state::RouteProgress& progress) {
-    // shouldNotifyMilestone은 내부 상태를 변경하므로 const_cast 사용
-    auto& mutableProgress = const_cast<domain::state::RouteProgress&>(progress);
-    if (milestoneReachedHandler_ && mutableProgress.milestones.shouldNotifyMilestone(progress.completionPercentage)) {
-        milestoneReachedHandler_(progress.completionPercentage);
+    // VisualFeedbackManager에서 milestone 상태 관리
+    for (size_t i = 0; i < milestonePercentages_.size(); ++i) {
+        if (!milestoneReached_[i] && progress.completionPercentage >= milestonePercentages_[i]) {
+            milestoneReached_[i] = true;
+            if (milestoneReachedHandler_) {
+                milestoneReachedHandler_(progress.completionPercentage);
+            }
+        }
     }
 }
 

@@ -2,6 +2,9 @@
 
 #include <chrono>
 #include <vector>
+#include <algorithm>  // std::clamp, std::fill
+#include <cmath>      // std::abs
+#include <string>     // std::string, std::to_string
 #include "ProjectMap.h"
 #include DOMAIN_TYPES
 #include DOMAIN_STATE_NAVIGATION

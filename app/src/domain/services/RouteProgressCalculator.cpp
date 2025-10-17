@@ -12,13 +12,15 @@ namespace domain::services {
 double RouteProgressCalculator::calculateDistance(
     double lat1, double lon1, double lat2, double lon2
 ) const {
-    const double R = 6371000.0; // 지구 반지름 (m)
+    // 상수 정의
+    const double EARTH_RADIUS_M = 6371000.0;  // 지구 반지름 (m)
+    const double DEG_TO_RAD = M_PI / 180.0;   // 도->라디안 변환 상수
     
     // 각도를 라디안으로 변환
-    double lat1_rad = lat1 * M_PI / 180.0;
-    double lon1_rad = lon1 * M_PI / 180.0;
-    double lat2_rad = lat2 * M_PI / 180.0;
-    double lon2_rad = lon2 * M_PI / 180.0;
+    double lat1_rad = lat1 * DEG_TO_RAD;
+    double lon1_rad = lon1 * DEG_TO_RAD;
+    double lat2_rad = lat2 * DEG_TO_RAD;
+    double lon2_rad = lon2 * DEG_TO_RAD;
     
     // 차이값 계산
     double dlat = lat2_rad - lat1_rad;
@@ -30,7 +32,7 @@ double RouteProgressCalculator::calculateDistance(
                std::sin(dlon/2) * std::sin(dlon/2);
     double c = 2 * std::atan2(std::sqrt(a), std::sqrt(1-a));
     
-    return R * c; // 거리 (미터)
+    return EARTH_RADIUS_M * c; // 거리 (미터)
 }
 
 // ============================================================================

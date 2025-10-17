@@ -180,6 +180,11 @@ private:
     domain::state::RouteProgress lastProgress_;
     bool isInitialized_ = false;
     
+    // Milestone 상태 관리 (const 문제 해결)
+    std::vector<double> milestonePercentages_{0.25, 0.5, 0.75}; // 25%, 50%, 75%
+    std::vector<bool> milestoneReached_;
+    double lastNotifiedPercentage_ = 0.0;
+    
     // === 내부 헬퍼 메서드들 ===
     
     /**
@@ -217,6 +222,9 @@ private:
 inline VisualFeedbackManager::VisualFeedbackManager() {
     // 기본 설정 초기화
     lastProgress_ = domain::state::RouteProgress{};
+    
+    // Milestone 상태 초기화
+    milestoneReached_.resize(milestonePercentages_.size(), false);
 }
 
 inline VisualFeedbackManager::~VisualFeedbackManager() {

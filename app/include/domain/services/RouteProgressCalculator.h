@@ -266,18 +266,30 @@ inline double RouteProgressCalculator::calculateRemainingDistance(
     
     double remainingDistance = 0.0;
     
-    // 현재 위치에서 가장 가까운 경로 포인트까지의 거리
-    const auto& closestPoint = route[closestPointIndex];
-    remainingDistance += calculateDistance(
-        currentLocation.coordinates.lat, currentLocation.coordinates.lon,
-        closestPoint.coordinates.lat, closestPoint.coordinates.lon
-    );
-    
-    // 나머지 경로 구간들의 거리 합계
-    for (size_t i = closestPointIndex; i < route.size() - 1; ++i) {
+    // 현재 구간 내에서의 남은 거리 계산
+    if (closestPointIndex < route.size() - 1) {
+        const auto& currentSegmentStart = route[closestPointIndex];
+        const auto& currentSegmentEnd = route[closestPointIndex + 1];
+        
+        // 현재 위치에서 현재 구간 끝까지의 거리
         remainingDistance += calculateDistance(
-            route[i].coordinates.lat, route[i].coordinates.lon,
-            route[i + 1].coordinates.lat, route[i + 1].coordinates.lon
+            currentLocation.coordinates.lat, currentLocation.coordinates.lon,
+            currentSegmentEnd.coordinates.lat, currentSegmentEnd.coordinates.lon
+        );
+        
+        // 나머지 구간들의 거리 합계
+        for (size_t i = closestPointIndex + 1; i < route.size() - 1; ++i) {
+            remainingDistance += calculateDistance(
+                route[i].coordinates.lat, route[i].coordinates.lon,
+                route[i + 1].coordinates.lat, route[i + 1].coordinates.lon
+            );
+        }
+    } else {
+        // 마지막 포인트에 가까운 경우 현재 위치에서 마지막 포인트까지의 거리
+        const auto& lastPoint = route.back();
+        remainingDistance = calculateDistance(
+            currentLocation.coordinates.lat, currentLocation.coordinates.lon,
+            lastPoint.coordinates.lat, lastPoint.coordinates.lon
         );
     }
     

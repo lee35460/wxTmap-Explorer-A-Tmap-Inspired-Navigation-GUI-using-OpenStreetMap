@@ -162,16 +162,15 @@ TEST_F(WXT_62_RouteProgressTestFixture, RouteProgressTrendsAnalysisTest) {
 TEST_F(WXT_62_RouteProgressTestFixture, RouteProgressMilestonesTest) {
     RouteProgress progress;
     
-    // 이정표 도달 확인
-    EXPECT_FALSE(progress.milestones.shouldNotifyMilestone(0.2)); // 25% 미달
-    EXPECT_TRUE(progress.milestones.shouldNotifyMilestone(0.3));  // 25% 초과
-    EXPECT_FALSE(progress.milestones.shouldNotifyMilestone(0.4)); // 이미 알림됨
+    // 이정표 도달 확인 - 각 단계별로 개별 검증
+    bool step1 = !progress.milestones.shouldNotifyMilestone(0.2); // 25% 미달
+    bool step2 = progress.milestones.shouldNotifyMilestone(0.3);  // 25% 초과 - 첫 알림
+    bool step3 = !progress.milestones.shouldNotifyMilestone(0.4); // 이미 알림됨
     
-    EXPECT_TRUE(progress.milestones.shouldNotifyMilestone(0.6));  // 50% 도달
-    EXPECT_TRUE(progress.milestones.shouldNotifyMilestone(0.8));  // 75% 도달
+    bool step4 = progress.milestones.shouldNotifyMilestone(0.6);  // 50% 도달
+    bool step5 = progress.milestones.shouldNotifyMilestone(0.8);  // 75% 도달
     
-    bool testPassed = !progress.milestones.shouldNotifyMilestone(0.2) && 
-                     progress.milestones.shouldNotifyMilestone(0.3);
+    bool testPassed = step1 && step2 && step3 && step4 && step5;
     std::cout << "test_output: RouteProgressMilestonesTest: 진행률 마일스톤 알림: " 
               << (testPassed ? "PASS" : "FAIL") << std::endl;
 }
